@@ -11,7 +11,7 @@ async function arStage(innerHTML, uiHTML) {
   const root = render(`<div class="stage">
     <video playsinline muted></video>
     <div class="overlay">
-      <div class="ar-monster" id="arObj">${innerHTML}</div>
+      <div class="ar-monster enter" id="arObj">${innerHTML}</div>
     </div>
     ${uiHTML}
   </div>`);
@@ -21,7 +21,7 @@ async function arStage(innerHTML, uiHTML) {
     await startCamera(video, 'environment');
   } catch {
     video.remove();
-    $('.stage', root).style.background = 'linear-gradient(#bfe6ff, #ffe1ec)';
+    $('.stage', root).classList.add('nocam');
   }
   const obj = $('#arObj', root);
   const k = window.innerWidth / 55;
@@ -35,12 +35,12 @@ async function arStage(innerHTML, uiHTML) {
 }
 
 // ① 胖胖怪登場
-export async function arIntro({ monsterHTML, speech, mission, missionSub, button = '我準備好了！' }) {
+export async function arIntro({ monsterHTML, speech, mission, missionSub, tag = 'BATTLE', button = '我準備好了！' }) {
   const root = await arStage(
     `<div class="speech">${esc(speech)}</div><div class="inner wobble">${monsterHTML}</div>`,
     `<div class="ui bottom">
-       <div class="mission">${mission}<small>${missionSub}</small></div>
-       <button class="btn" id="go">${button}</button>
+       <div class="mission"><span class="m-tag">${esc(tag)}</span><br>${mission}<small>${missionSub}</small></div>
+       <button class="btn big pulse" id="go">${button}</button>
      </div>`,
   );
   return new Promise((res) => on($('#go', root), 'click', () => { sfx.boing(); res(); }));
@@ -51,7 +51,7 @@ export async function collect({ spiritHTML, name }) {
   say('拿起我拿起我！把精靈收進來！');
   const root = await arStage(
     `<div class="speech">點我收服！</div><div class="inner">${spiritHTML}</div>`,
-    `<div class="ui bottom"><div class="mission">${esc(name)} 出現了！<small>拿起手機，點一下精靈收服牠 ✨</small></div></div>`,
+    `<div class="ui bottom"><div class="mission"><span class="m-tag" style="background:var(--mint)">CATCH!</span><br>${esc(name)} 出現了！<small>拿起手機，點一下精靈收服牠 ✨</small></div></div>`,
   );
   return new Promise((res) => on($('#arObj', root), 'click', () => { sfx.ding(); vibrate([40, 40, 80]); res(); }));
 }
@@ -66,7 +66,7 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     <div class="guide-frame ${ex.view === 'side' ? 'side' : ''}"></div>
     <div class="ui top"><div class="battle-top">
       <div class="mini-monster"><div class="inner">${monsterHTML}</div></div>
-      <div class="hp"><div class="lbl">${esc(label)}・${ex.name} ${target}${ex.unit}</div><div class="bar"><i style="width:100%"></i></div></div>
+      <div class="hp"><div class="lbl"><span>${esc(label)}</span><em>${ex.name} ${target}${ex.unit}</em></div><div class="bar"><i style="width:100%"></i></div></div>
     </div></div>
     <div class="coach" id="coach">小跳跳正在戴眼鏡… 🔍</div>
     <div class="big-count" id="count" hidden></div>
@@ -108,10 +108,27 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
       : `${Math.floor(progress)}<small> / ${target}</small>`;
   };
 
-  const bump = () => {
-    countEl.classList.remove('bump'); void countEl.offsetWidth; countEl.classList.add('bump');
-    const svg = mini.firstElementChild;
-    svg.classList.remove('squash'); void svg.offsetWidth; svg.classList.add('squash');
+  const restart = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+  const POPS = ['POP!', '啵！', 'HIT!', 'NICE!', '噗！', 'GOOD!'];
+  const stageEl = $('.stage', root);
+  const bump = (big = true) => {
+    restart(countEl, 'bump');
+    restart(mini.firstElementChild, 'squash');
+    restart(mini.parentElement, 'shake');
+    if (!big) return;
+    // 跳出打擊字 + 閃一下
+    const pop = document.createElement('div');
+    pop.className = 'hitpop';
+    pop.textContent = POPS[(Math.random() * POPS.length) | 0];
+    pop.style.left = 30 + Math.random() * 40 + '%';
+    pop.style.top = 30 + Math.random() * 18 + '%';
+    pop.style.color = ['#FFC93C', '#FF9CC2', '#8BF0BE', '#93CCFF'][(Math.random() * 4) | 0];
+    stageEl.appendChild(pop);
+    setTimeout(() => pop.remove(), 850);
+    const fl = document.createElement('div');
+    fl.className = 'flash';
+    stageEl.appendChild(fl);
+    setTimeout(() => fl.remove(), 300);
   };
 
   let resolveFn;
@@ -141,7 +158,13 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     hpBar.style.width = '0%';
     mini.style.transform = 'scale(.35)';
     sfx.deflate(); vibrate([60, 60, 160]);
+    countEl.hidden = true;
+    const ko = document.createElement('div');
+    ko.className = 'ko';
+    ko.textContent = '消風啦！';
+    $('.stage', root).appendChild(ko);
     coach(loseLine || '噗咻～～', 'good');
+    coachEl.style.top = '58%';
     stopSpeech();
     say('成功了！' + (loseLine || ''));
     await sleep(2200);
@@ -158,10 +181,10 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     $('.stage', root).appendChild(cd);
     for (const n of [3, 2, 1]) {
       if (!alive) return;
-      cd.textContent = n; sfx.tick(); say(cnNum(n), { interrupt: true, rate: 1.2 });
+      cd.innerHTML = `<span>${n}</span>`; sfx.tick(); say(cnNum(n), { interrupt: true, rate: 1.2 });
       await sleep(900);
     }
-    cd.textContent = 'GO!'; sfx.boing(); say('開始！', { interrupt: true });
+    cd.innerHTML = '<span>GO!</span>'; sfx.boing(); say('開始！', { interrupt: true });
     await sleep(500);
     cd.remove();
     guideEl.remove();
@@ -224,7 +247,7 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
   function tickTimed() {
     showProgress();
     const whole = Math.floor(progress);
-    if (whole !== lastWhole) { lastWhole = whole; if (whole > 0) { bump(); onSecond(target - whole); } }
+    if (whole !== lastWhole) { lastWhole = whole; if (whole > 0) { bump(whole % 3 === 0); onSecond(target - whole); } }
     if (progress >= target) finish();
   }
 
