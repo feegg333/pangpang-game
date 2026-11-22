@@ -1,7 +1,7 @@
 // 打倒胖胖怪！主流程
 import { NESTS, NEST_ORDER, BOSS, EXERCISES, REWARD } from './config.js';
 import {
-  S, update, placeOf, fatNestToday, today, level, allCollected, recordWin, recordBossWin, resetAll, reload,
+  S, update, fatNestToday, today, level, allCollected, recordWin, recordBossWin, resetAll, reload,
 } from './store.js';
 import { unlockAudio, say, sfx, vibrate, cnNum } from './audio.js';
 import { requestMotion } from './camera.js';
@@ -152,7 +152,7 @@ function home() {
         <div class="q-ico wobble">${monsterSVG(fat)}</div>
         <div class="q-body"><div class="q-tag">今日任務</div>
           <div class="q-title">${NESTS[fat].monster} 偷吃東西變胖了！</div>
-          <div class="q-sub">📍 ${esc(placeOf(fat))}・打倒牠拿 <b style="color:var(--red)">雙倍元氣值</b></div></div>
+          <div class="q-sub">去 ${NESTS[fat].emoji} ${NESTS[fat].nest} 打倒牠拿 <b style="color:var(--red)">雙倍元氣值</b></div></div>
       </div>`
     : `<div class="quest done">
         <div class="q-ico">${spiritSVG(fat)}</div>
@@ -162,7 +162,7 @@ function home() {
       </div>`;
 
   const tip = nextNew
-    ? bunny(`快去 <b>${esc(placeOf(nextNew))}</b> 找 ${NESTS[nextNew].emoji} ${NESTS[nextNew].monster}！`)
+    ? bunny(`快去 <b>${NESTS[nextNew].emoji} ${NESTS[nextNew].nest}</b> 找 ${NESTS[nextNew].monster}！`)
     : bossOpen && !st.bossWins ? bunny('4 隻都收服了！<b>胖胖大王</b>的城堡開了，點城堡挑戰牠！') : '';
 
   const node = (id) => {
@@ -177,7 +177,7 @@ function home() {
     return `<div class="node ${cls}" data-id="${id}" style="left:${x}%;top:${y}px">
       <div class="node-ring">${badge}${isFat || st.collected[id] ? monsterSVG(id) : monsterSVG(id)}</div>
       <div class="node-stars">${stars}</div>
-      <div class="node-label">${n.emoji} ${n.monster}<small>📍${esc(placeOf(id))}・${ex.name}${n.target}${ex.unit}</small></div>
+      <div class="node-label">${n.emoji} ${n.monster}<small>${n.nest}・${ex.name}${n.target}${ex.unit}</small></div>
     </div>`;
   };
   const [bx, by] = MAP_POS.boss;
@@ -221,7 +221,7 @@ function home() {
     const id = el.dataset.id;
     sfx.boing();
     if (DEBUG) return handleScan(id, NESTS[id].key);
-    toast(`走去 ${placeOf(id)}，用手機上緣碰 ${NESTS[id].emoji}${NESTS[id].nest} 的貼紙！`);
+    toast(`去 ${NESTS[id].emoji}${NESTS[id].nest}，用手機上緣碰貼紙！`);
   }));
   on('#castle', 'click', async () => {
     if (!bossOpen) { sfx.oops(); return toast(`還要收服 ${4 - got} 隻胖胖怪，城堡才會開門！`); }
@@ -236,7 +236,7 @@ function home() {
     $('#mute').textContent = onNow ? '🎵' : '🔇';
     toast(onNow ? '背景音樂：開' : '背景音樂：關', 1200);
   });
-  on('#quest', 'click', () => toast(`走去 ${placeOf(fat)} 碰 ${NESTS[fat].emoji}${NESTS[fat].nest} 的貼紙！`));
+  on('#quest', 'click', () => toast(`去 ${NESTS[fat].emoji}${NESTS[fat].nest}，用手機上緣碰貼紙！`));
   on('#dex', 'click', dex);
   on('#set', 'click', settings);
   on('#nfc', 'click', async () => {
@@ -254,7 +254,6 @@ function encounterGate(id) {
   playMusic('home');
   sfx.alert();
   render(`<div class="screen center">
-    <div class="pill">📍 ${esc(placeOf(id))}</div>
     <h1 class="title stroke">發現${n.emoji}${n.nest}！</h1>
     <div class="alert-mark">!</div>
     <div class="silhouette wobble">${monsterSVG(id)}</div>
@@ -300,10 +299,10 @@ async function encounter(id) {
 function nextHint() {
   const st = S();
   const nextNew = NEST_ORDER.find((id) => !st.collected[id]);
-  if (nextNew) return `下一隻：去 <b>${esc(placeOf(nextNew))}</b> 找 ${NESTS[nextNew].emoji} ${NESTS[nextNew].monster}！`;
+  if (nextNew) return `下一隻：去 <b>${NESTS[nextNew].emoji} ${NESTS[nextNew].nest}</b> 找 ${NESTS[nextNew].monster}！`;
   if (!st.bossWins) return '4 隻都收服了！<b>胖胖大王</b>出現了，回主畫面挑戰牠！';
   const fat = fatNestToday();
-  if (isFatToday(fat)) return `今天變胖的是 <b>${NESTS[fat].monster}</b>，在 <b>${esc(placeOf(fat))}</b>，去拿雙倍獎勵！`;
+  if (isFatToday(fat)) return `今天變胖的是 <b>${NESTS[fat].monster}</b>，在 <b>${NESTS[fat].emoji} ${NESTS[fat].nest}</b>，去拿雙倍獎勵！`;
   return '今天的雙倍獎勵拿到了！還想運動的話，再打一次也有元氣值喔～';
 }
 
@@ -374,7 +373,7 @@ async function bossIntro() {
     <div class="seq">${seq.map((id, i) => `${i ? '<span class="arrow">▶</span>' : ''}<div class="s">${NESTS[id].emoji}</div>`).join('')}</div>
     <div class="card" style="width:100%;text-align:left;line-height:2;margin-top:14px">
       <div style="text-align:center"><div class="panel-head">限時 ${BOSS.timeLimit / 60} 分鐘</div></div>
-      ${seq.map((id, i) => `<div><b>${i + 1}.</b> ${NESTS[id].emoji} ${NESTS[id].nest}・📍${esc(placeOf(id))}</div>`).join('')}
+      ${seq.map((id, i) => `<div><b>${i + 1}.</b> ${NESTS[id].emoji} ${NESTS[id].nest}</div>`).join('')}
     </div>
     ${bunny(`每碰一個窩，大王的肚子就會消一圈！全部跑完再做 <b>${BOSS.target} 下波比跳</b> 給牠最後一擊！`)}
     <button class="btn big pulse" id="go">開始計時！</button>
@@ -385,7 +384,7 @@ async function bossIntro() {
     gesture();
     update((s) => (s.boss = { seq, idx: 0, deadline: Date.now() + BOSS.timeLimit * 1000, phase: 'run' }));
     sfx.boing();
-    say(`開始！第一站，${placeOf(seq[0])}！`);
+    say(`開始！第一站，${NESTS[seq[0]].nest}！`);
     bossRun();
   });
 }
@@ -405,7 +404,7 @@ function bossRun(msg = '', good = true) {
     <div class="seq">
       ${b.seq.map((id, i) => `${i ? '<span class="arrow">▶</span>' : ''}<div class="s ${i < b.idx ? 'done' : i === b.idx ? 'next' : ''}">${NESTS[id].emoji}</div>`).join('')}
     </div>
-    <h1 class="title stroke" style="font-size:28px">快去 <span class="accent">${esc(placeOf(next))}</span><br>碰 ${NESTS[next].emoji} ${NESTS[next].nest}！</h1>
+    <h1 class="title stroke" style="font-size:28px">快去碰<br><span class="accent">${NESTS[next].emoji} ${NESTS[next].nest}</span>！</h1>
     <div class="card" style="padding:10px 14px"><p class="sub">${webNfcSupported() && nfcActive() ? '直接碰貼紙就好' : 'iPhone：碰貼紙後點上方通知，會自動接續進度'}</p></div>
     <button class="btn white small" id="giveup">放棄挑戰</button>
     ${DEBUG ? `<button class="btn sky small" id="dbg">模擬感應 ${NESTS[next].emoji}</button>` : ''}
@@ -438,13 +437,13 @@ function bossScan(id) {
       return bossFinal();
     }
     const nx = S().boss.seq[S().boss.idx];
-    say(`啵！大王肚子消一圈！下一站，${placeOf(nx)}！`);
+    say(`啵！大王肚子消一圈！下一站，${NESTS[nx].nest}！`);
     bossRun('啵！大王肚子消一圈！🎉', true);
   } else {
     sfx.oops();
     const want = b.seq[b.idx];
-    say(`不是這裡喔，要去${placeOf(want)}！`);
-    bossRun(`不是這裡喔～要先去 ${esc(placeOf(want))}！`, false);
+    say(`不是這裡喔，要先去${NESTS[want].nest}！`);
+    bossRun(`不是這裡喔～要先去 ${NESTS[want].emoji} ${NESTS[want].nest}！`, false);
   }
 }
 
@@ -533,11 +532,6 @@ function settings() {
       <div class="toggle"><span>🔊 語音報數與提示</span><input type="checkbox" id="voice" ${st.settings.voice ? 'checked' : ''} style="width:26px;height:26px" /></div>
       <button class="btn small sky" id="test">測試語音</button>
     </div>
-    <div class="card" style="display:flex;flex-direction:column;gap:10px">
-      <b>📍 胖胖窩放在哪裡？</b>
-      ${NEST_ORDER.map((id) => `<label class="field">${NESTS[id].emoji} ${NESTS[id].nest}
-        <input class="text place" id="place-${id}" data-id="${id}" maxlength="10" value="${esc(placeOf(id))}" style="font-size:17px;padding:8px" /></label>`).join('')}
-    </div>
     <div class="card">
       <b>🏷️ 貼紙要寫入的網址</b>
       <p class="sub" style="font-size:13px;margin:4px 0 10px">用「NFC Tools」App →「寫」→「新增記錄」→「網址/URI」，每張貼紙寫一個。</p>
@@ -561,7 +555,6 @@ function settings() {
       s.settings.voice = $('#voice').checked;
       s.settings.music = $('#music').checked;
       s.settings.sfx = $('#sfx').checked;
-      $$('.place').forEach((i) => { if (i.value.trim()) s.places[i.dataset.id] = i.value.trim(); });
     });
     setMusicEnabled(S().settings.music !== false);
     toast('儲存好了！');

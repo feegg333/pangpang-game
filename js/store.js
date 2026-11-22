@@ -6,7 +6,6 @@ const KEY = 'pangpang.v1';
 const fresh = () => ({
   name: '',
   energy: 0,
-  places: {},       // nestId -> 使用者自訂位置名稱
   collected: {},    // nestId -> true（已收服）
   wins: {},         // nestId -> 次數
   bossWins: 0,
@@ -57,10 +56,6 @@ export function fatNestToday() {
   let h = 0;
   for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return NEST_ORDER[h % NEST_ORDER.length];
-}
-
-export function placeOf(id) {
-  return state.places[id] || NESTS[id].defaultPlace;
 }
 
 export function level() {
