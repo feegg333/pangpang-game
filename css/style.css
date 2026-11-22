@@ -142,6 +142,11 @@ input.text:focus { outline: none; border-color: var(--purple); background: #fff;
 svg .eyes { transform-box: fill-box; transform-origin: center; animation: blink 4.2s infinite; }
 @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
 .spirit-svg .wings { transform-origin: 100px 108px; animation: flap .5s ease-in-out infinite alternate; }
+.spirit-svg .aura-ring { transform-origin: 100px 108px; animation: spin 10s linear infinite; }
+.spirit-svg .aura { animation: auraPulse 2s ease-in-out infinite; transform-origin: 100px 108px; }
+@keyframes auraPulse { 50% { opacity: .55; transform: scale(1.06); } }
+.spirit-svg .halo { animation: haloBob 1.6s ease-in-out infinite; }
+@keyframes haloBob { 50% { transform: translateY(-4px); } }
 @keyframes flap { from { transform: scaleX(1); } to { transform: scaleX(.86) translateY(-3px); } }
 .bunny-svg .ears { transform-origin: 60px 60px; animation: ears 3s ease-in-out infinite; }
 @keyframes ears { 0%, 80%, 100% { transform: rotate(0); } 88% { transform: rotate(-6deg); } 94% { transform: rotate(4deg); } }
@@ -333,6 +338,70 @@ svg .eyes { transform-box: fill-box; transform-origin: center; animation: blink 
 .gain-row.mdone { background: #FFF7D6; animation-delay: 2.4s; }
 .gain-row.chest { background: #FFE3EF; animation-delay: 2.8s; }
 .gain-row.perfect { background: #E3FBEE; justify-content: center; }
+
+/* 精靈夥伴 */
+.buddy-bar {
+  display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 22px;
+  background: rgba(255,255,255,.92); border: 3.5px solid var(--ink); box-shadow: 0 6px 0 var(--ink);
+}
+.buddy-bar.empty { padding: 10px 14px; }
+.b-empty-ico { font-size: 30px; }
+.buddy-pet {
+  position: relative; width: 84px; height: 80px; flex: none; padding: 0; border: 0; background: none; cursor: pointer;
+}
+.buddy-pet svg { width: 100%; height: 100%; }
+.buddy-pet.petted svg { animation: petJump .5s cubic-bezier(.3,1.8,.5,1); }
+@keyframes petJump { 30% { transform: translateY(-14px) scale(1.08, .94); } 60% { transform: translateY(0) scale(.94, 1.06); } }
+.buddy-pet .heart { position: absolute; left: 50%; top: 0; font-size: 22px; pointer-events: none; animation: heartUp .9s ease-out forwards; }
+@keyframes heartUp { from { transform: translate(-50%, 0) scale(.5); opacity: 1; } to { transform: translate(-50%, -46px) scale(1.2); opacity: 0; } }
+.buddy-info { flex: 1; min-width: 0; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.b-name { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 16px; flex-wrap: wrap; }
+.b-lv { font-family: var(--num); font-weight: 800; font-size: 12px; padding: 0 7px; border-radius: 8px; background: var(--yellow); border: 2px solid var(--ink); }
+.b-form { font-size: 12px; font-weight: 900; color: var(--purple); }
+.b-xp { position: relative; height: 12px; border-radius: 999px; background: #EFE7F7; border: 2px solid var(--ink); overflow: hidden; }
+.b-xp > i { display: block; height: 100%; background: linear-gradient(90deg, #FFB3CB, var(--pink)); }
+.b-xp.big { height: 20px; margin: 8px 0; }
+.b-xp > span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 900; color: var(--ink); }
+.b-line { font-size: 13px; font-weight: 700; color: var(--muted); }
+.b-line b { color: var(--pink); }
+.buddy-hero { display: flex; flex-direction: column; gap: 2px; }
+.bh-pet { width: 190px; margin: 0 auto; }
+.perk { padding: 8px 12px; border-radius: 14px; background: #FFF7D6; border: 2.5px solid var(--ink); font-weight: 700; font-size: 14px; line-height: 1.5; }
+.perk b { display: block; font-weight: 900; color: var(--pink); font-size: 13px; }
+.forms { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 10px; }
+.form { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; }
+.form svg { width: 100%; filter: grayscale(1) opacity(.35); animation: none; }
+.form.on svg { filter: none; }
+.form span { font-family: var(--num); font-weight: 800; font-size: 12px; }
+.form small { font-size: 10px; font-weight: 700; color: var(--muted); line-height: 1.2; }
+.buddy-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pick {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 4px 8px; min-width: 0; cursor: pointer;
+  background: #fff; border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 4px 0 var(--ink); font: inherit; color: var(--ink);
+}
+.pick svg { width: 100%; animation: none; }
+.pick b { font-size: 13px; font-weight: 900; }
+.pick small { font-size: 11px; font-weight: 700; color: var(--muted); }
+.pick.cur { background: #FFE3EF; }
+.pick.cur small { color: var(--pink); font-weight: 900; }
+.pick.locked { background: #EEE8F5; cursor: default; }
+.pick.locked svg { filter: brightness(0) opacity(.18); }
+.gain-row.buddy-row { background: #FFE3EF; animation-delay: 2s; }
+.gain-row.buddy-row b { color: var(--pink); }
+.gain-row.buddy-row.evo { background: linear-gradient(90deg, #FFF2C2, #FFE3EF); animation-delay: 3.4s; }
+/* 戰鬥中的夥伴 */
+.buddy-float {
+  position: absolute; z-index: 5; pointer-events: none;
+  left: max(10px, env(safe-area-inset-left, 0px)); bottom: calc(84px + env(safe-area-inset-bottom));
+  width: 92px;
+}
+.buddy-float .bf-pet svg { width: 100%; }
+.buddy-float.cheer .bf-pet { animation: petJump .5s cubic-bezier(.3,1.8,.5,1); }
+.bf-bubble {
+  position: absolute; left: 70px; bottom: 60px; width: max-content; max-width: 58vw;
+  background: #fff; border: 3px solid var(--ink); border-radius: 16px 16px 16px 4px; padding: 6px 12px;
+  font-weight: 900; font-size: 15px; box-shadow: 0 4px 0 var(--ink);
+}
 
 /* 運動紀錄 */
 .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }

@@ -146,21 +146,34 @@ const MINI = {
   lazy: `<path d="M64 70 C74 38 120 36 136 62 L146 80 L136 82 C126 66 96 64 64 70 Z" fill="#5E7CFF" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/><circle cx="146" cy="84" r="7" fill="#FFE07A" stroke="${INK}" stroke-width="3"/>`,
   boss: `<path d="M72 64 l6 -26 l14 14 l8 -18 l8 18 l14 -14 l6 26 z" fill="#FFD34D" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/><circle cx="100" cy="48" r="4" fill="#FF4D7A"/>`,
 };
-export function spiritSVG(id) {
+// level：夥伴進化等級 1～5（2 圍巾、3 星星徽章＋大翅膀、4 金色光環、5 彩虹光圈）
+export function spiritSVG(id, level = 1) {
   const color = id === 'boss' ? '#FFD86B' : ACC[id].color;
   const u = uid();
-  return `<svg viewBox="0 0 200 190" class="spirit-svg" role="img" aria-label="精靈">
+  const scarf = id === 'boss' ? '#8E5CFF' : id === 'lazy' ? '#FF7AA8' : '#FF5F7E';
+  const wingScale = level >= 3 ? 1.18 : 1;
+  return `<svg viewBox="-10 -16 220 216" class="spirit-svg lv${level}" role="img" aria-label="精靈">
     ${defs(u, color)}
-    <defs><linearGradient id="${u}w" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#CFE9FF"/></linearGradient></defs>
-    <g class="wings">
+    <defs><linearGradient id="${u}w" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="${level >= 4 ? '#FFE9A8' : '#CFE9FF'}"/></linearGradient>
+      <radialGradient id="${u}glow"><stop offset=".55" stop-color="#FFE68A" stop-opacity=".9"/><stop offset="1" stop-color="#FFE68A" stop-opacity="0"/></radialGradient>
+      <linearGradient id="${u}rb" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FF7AA8"/><stop offset=".25" stop-color="#FFC93C"/><stop offset=".5" stop-color="#7BE495"/><stop offset=".75" stop-color="#59C7FF"/><stop offset="1" stop-color="#B48CFF"/></linearGradient></defs>
+    ${level >= 4 ? `<circle cx="100" cy="108" r="84" fill="url(#${u}glow)" class="aura"/>
+      <circle cx="100" cy="108" r="68" fill="none" stroke="#FFC93C" stroke-width="3" stroke-dasharray="4 10" stroke-linecap="round" class="aura-ring"/>` : ''}
+    <g transform="translate(100 108) scale(${wingScale}) translate(-100 -108)"><g class="wings">
       <path d="M62 100 C30 60 6 80 14 104 C20 124 46 124 62 112 Z" fill="url(#${u}w)" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
       <path d="M138 100 C170 60 194 80 186 104 C180 124 154 124 138 112 Z" fill="url(#${u}w)" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
       <path d="M30 96 q12 -8 24 6 M170 96 q-12 -8 -24 6" fill="none" stroke="#9FD3FF" stroke-width="3" stroke-linecap="round"/>
-    </g>
+    </g></g>
     <circle cx="100" cy="108" r="50" fill="url(#${u}b)" stroke="${INK}" stroke-width="4.5"/>
     <ellipse cx="80" cy="84" rx="13" ry="7" transform="rotate(-25 80 84)" fill="#fff" opacity=".85"/>
     ${MINI[id] || ''}
     <g transform="translate(0 -6)">${face(u, 'happy')}</g>
+    ${level >= 2 ? `<path d="M56 136 Q100 160 144 136 L146 148 Q100 172 54 148 Z" fill="${scarf}" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M126 150 l10 26 l-14 -4 l-6 10 l-4 -28 z" fill="${scarf}" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M64 142 Q100 160 136 142" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round" opacity=".8"/>` : ''}
+    ${level >= 3 ? `<path d="M100 141 l4 8 l9 1 l-7 6 l2 9 l-8 -5 l-8 5 l2 -9 l-7 -6 l9 -1 z" fill="#FFE07A" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>` : ''}
+    ${level >= 5 ? `<ellipse cx="100" cy="${id === 'boss' || id === 'chips' || id === 'tea' ? 18 : 40}" rx="40" ry="10" fill="none" stroke="url(#${u}rb)" stroke-width="7" class="halo"/>
+      <g fill="#fff" stroke="${INK}" stroke-width="1.5"><circle cx="40" cy="160" r="4"/><circle cx="164" cy="60" r="3.5"/><circle cx="22" cy="80" r="3"/></g>` : ''}
     <g fill="#FFE07A" stroke="${INK}" stroke-width="2" stroke-linejoin="round">
       <path d="M28 34 l4 10 l10 4 l-10 4 l-4 10 l-4 -10 l-10 -4 l10 -4 z"/>
       <path d="M170 146 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 l7 -3 z"/>

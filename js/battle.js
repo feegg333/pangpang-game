@@ -61,7 +61,8 @@ export async function collect({ spiritHTML, name }) {
 
 // ② 運動戰鬥：回傳 'done' 或 'quit'
 // 回傳 { status: 'done' | 'quit', hints: 被提醒次數, manual: 是否手動模式 }
-export function workout({ exercise, target, monsterHTML, label, hurt = [], loseLine = '', level = 0 }) {
+// buddy：{ html, name, lines } 精靈夥伴，會在角落幫你加油
+export function workout({ exercise, target, monsterHTML, label, hurt = [], loseLine = '', level = 0, buddy = null }) {
   const ex = EXERCISES[exercise];
   const timed = ex.timed;
   const root = render(`<div class="stage">
@@ -74,6 +75,7 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     </div></div>
     <div class="coach" id="coach">小跳跳正在戴眼鏡… 🔍</div>
     <div class="big-count" id="count" hidden></div>
+    ${buddy ? `<div class="buddy-float" id="buddyF"><div class="bf-bubble" id="buddyB" hidden></div><div class="bf-pet">${buddy.html}</div></div>` : ''}
     <div class="ui bottom"><div class="row">
       <button class="btn white small" id="quit">離開</button>
       <button class="btn yellow small" id="skipGuide" hidden>直接開始</button>
@@ -139,6 +141,19 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
   let resolveFn;
   const finished = new Promise((r) => (resolveFn = r));
 
+  // 夥伴在角落冒對話泡泡＋跳一下
+  let buddyTimer = 0, buddyIdx = 0;
+  const buddyCheer = () => {
+    if (!buddy) return;
+    const b = $('#buddyB', root), f = $('#buddyF', root);
+    b.textContent = buddy.lines[buddyIdx++ % buddy.lines.length];
+    b.hidden = false;
+    restart(f, 'cheer');
+    sfx.sparkle();
+    clearTimeout(buddyTimer);
+    buddyTimer = setTimeout(() => (b.hidden = true), 2200);
+  };
+
   const onRep = () => {
     sfx.hit(); vibrate(30); bump();
     if (!timed) {
@@ -147,6 +162,7 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
       say(cnNum(n), { interrupt: true, rate: 1.3 });
       if (n === target - 3) coach('最後三下！加油加油～', 'good', 1500);
       else if (n > 0 && n % 5 === 0 && hurt.length) coach(hurt[(n / 5) % hurt.length | 0], '', 1400);
+      if (n > 0 && n % 4 === 0 && n !== target) buddyCheer();
     }
   };
 
@@ -158,6 +174,7 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     if ([20, 10].includes(remain)) say(`還有${cnNum(remain)}秒`, { interrupt: true });
     else if (remain <= 5) say(cnNum(remain), { interrupt: true, rate: 1.3 });
     if (remain === 15 && hurt.length) coach(hurt[0], '', 1400);
+    if (remain > 5 && remain % 8 === 0) buddyCheer();
   };
 
   const finish = async () => {

@@ -15,6 +15,16 @@ import {
 } from './daily.js';
 import { recordLog, checkAchievements, ACH_REWARD } from './progress.js';
 import { recordsPage, achievementsPage } from './pages.js';
+import {
+  BUDDY_IDS, BUDDY_LEVELS, FORM_NAMES, PERKS, LINES, HOME_LINES, buddyName, isCollected, buddyLevel, buddyProgress,
+  buddyId, setBuddy, autoAssign, petBuddy, buddyAfterBattle,
+} from './buddy.js';
+
+// 戰鬥中陪你的夥伴資料
+function buddyForBattle() {
+  const id = buddyId();
+  return id ? { html: spiritSVG(id, buddyLevel(id)), name: buddyName(id), lines: LINES[id] } : null;
+}
 
 let busy = false; // 戰鬥中，忽略遊戲內感應
 
@@ -178,6 +188,21 @@ function home() {
       <span class="mrew">${d.bonus ? '已領' : `+${BONUS}`}</span></div>
   </div>`;
 
+  // 精靈夥伴（舊進度已有收服的精靈但還沒選夥伴：自動選第一隻）
+  if (!buddyId()) { const first = BUDDY_IDS.find(isCollected); if (first) setBuddy(first); }
+  const bId = buddyId();
+  const buddyBar = bId ? (() => {
+    const lv = buddyLevel(bId), pr = buddyProgress(bId);
+    return `<div class="buddy-bar">
+      <button class="buddy-pet" id="pet" aria-label="摸摸夥伴">${spiritSVG(bId, lv)}</button>
+      <div class="buddy-info" id="buddyInfo">
+        <div class="b-name">${esc(buddyName(bId))}<span class="b-lv">Lv.${lv}</span><span class="b-form">${FORM_NAMES[lv]}</span></div>
+        <div class="b-xp"><i style="width:${pr.pct * 100}%"></i></div>
+        <div class="b-line" id="bLine">「${HOME_LINES[new Date().getDate() % HOME_LINES.length]}」</div>
+      </div>
+    </div>`;
+  })() : `<div class="buddy-bar empty"><span class="b-empty-ico">🧚</span><div class="b-line">收服第一隻精靈後，牠就會成為你的<b>夥伴</b>，陪你一起運動！</div></div>`;
+
   const tip = nextNew
     ? bunny(`快去 <b>${NESTS[nextNew].emoji} ${NESTS[nextNew].nest}</b> 找 ${NESTS[nextNew].monster}！`)
     : bossOpen && !st.bossWins ? bunny('4 隻都收服了！<b>胖胖大王</b>的城堡開了，點城堡挑戰牠！') : '';
@@ -213,6 +238,7 @@ function home() {
       </div>
       <button class="mute" id="mute" aria-label="背景音樂開關">${st.settings.music !== false ? '🎵' : '🔇'}</button>
     </div>
+    ${buddyBar}
     ${quest}
     ${tip}
     <div class="map">
@@ -231,6 +257,7 @@ function home() {
       <button class="btn mint" id="train">💪 訓練</button>
       <button class="btn sky" id="rec">📅 紀錄</button>
       <button class="btn" id="ach">🏅 成就</button>
+      <button class="btn yellow" id="buddyBtn">🧚 夥伴</button>
       <button class="btn yellow" id="dex">📖 圖鑑</button>
       <button class="btn purple" id="set">⚙️ 設定</button>
     </div>
@@ -259,6 +286,24 @@ function home() {
   on('#dex', 'click', dex);
   on('#train', 'click', training);
   on('#rec', 'click', () => recordsPage(home));
+  on('#buddyBtn', 'click', buddyPage);
+  on('#buddyInfo', 'click', buddyPage);
+  // 摸摸頭：跳一下、冒愛心，每天第一次 +5 親密度
+  on('#pet', 'click', (e) => {
+    const btn = e.currentTarget;
+    btn.classList.remove('petted'); void btn.offsetWidth; btn.classList.add('petted');
+    const h = document.createElement('span');
+    h.className = 'heart'; h.textContent = ['💖', '💕', '✨', '💗'][(Math.random() * 4) | 0];
+    btn.appendChild(h); setTimeout(() => h.remove(), 900);
+    sfx.sparkle();
+    const line = LINES[bId][(Math.random() * LINES[bId].length) | 0];
+    $('#bLine').textContent = `「${line}」`;
+    const r = petBuddy();
+    if (r) {
+      toast(r.levelUp ? `✨ ${buddyName(bId)} 進化了！` : '摸摸頭～親密度 +5', 1600);
+      if (r.levelUp) setTimeout(home, 1200);
+    }
+  });
   on('#ach', 'click', () => achievementsPage(home));
   on('#set', 'click', settings);
   on('#nfc', 'click', async () => {
@@ -304,7 +349,7 @@ async function encounter(id) {
   });
   const r = await workout({
     exercise: exId, target, monsterHTML: monsterSVG(id, 'hurt'), level: stage + 1,
-    label: n.monster, hurt: n.hurt, loseLine: n.lose,
+    label: n.monster, hurt: n.hurt, loseLine: n.lose, buddy: buddyForBattle(),
   });
   if (r.status === 'quit') { busy = false; return home(); }
   await collect({ spiritHTML: spiritSVG(id), name: n.spirit });
@@ -317,6 +362,8 @@ async function encounter(id) {
     reps: ex.kind === 'reps' ? target : 0, hold: ex.kind === 'hold' ? target : 0,
   });
   recordLog({ ex: exId, amount: target, perfect });
+  const newBuddy = autoAssign(id);
+  const bud = buddyAfterBattle({ nest: id, kind: ex.kind, base: res.gained, daily: dres.gained, perfect });
   const achs = checkAchievements();
   busy = false;
   rewardScreen({
@@ -324,7 +371,7 @@ async function encounter(id) {
     banner: res.firstTime ? '收服成功！' : '再次消風！',
     title: res.firstTime ? `${n.spirit} 加入圖鑑` : `${n.monster} 又被打扁了`,
     gained: res.gained, doubled: res.doubled, levelUp: level() > lvBefore,
-    trainUp, daily: dres, perfect, achs,
+    trainUp, daily: dres, perfect, achs, bud, newBuddy,
     again: () => encounter(id),
   });
 }
@@ -339,7 +386,7 @@ function nextHint() {
   return '今天的雙倍獎勵拿到了！還想運動的話，再打一次也有元氣值喔～';
 }
 
-function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = false, trainUp = null, daily: dres = null, perfect = false, achs = [], again }) {
+function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = false, trainUp = null, daily: dres = null, perfect = false, achs = [], bud = null, newBuddy = false, again }) {
   const lv = level();
   stopMusic(0.2);
   const extra = [];
@@ -351,6 +398,11 @@ function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = fa
   (dres?.newly || []).forEach((m) => extra.push(`<div class="gain-row mdone"><span>📜 任務完成：${esc(m.text)}</span><b>+${m.reward}</b></div>`));
   if (dres?.bonus) extra.push(`<div class="gain-row chest"><span>🎁 今日任務全部完成！寶箱</span><b>+${BONUS}</b></div>`);
   achs.forEach((a) => extra.push(`<div class="gain-row ach-row"><span>🏅 成就解鎖：${a.icon} ${esc(a.name)}</span><b>+${ACH_REWARD}</b></div>`));
+  if (newBuddy) extra.push(`<div class="gain-row buddy-row"><span>🧚 ${esc(buddyName(buddyId()))} 成為你的夥伴了！</span><b>夥伴</b></div>`);
+  if (bud) {
+    extra.push(`<div class="gain-row buddy-row"><span>🧚 ${esc(buddyName(bud.id))} 親密度 +${bud.xp}</span>${bud.extra ? `<b>夥伴加成 +${bud.extra}</b>` : '<b></b>'}</div>`);
+    if (bud.levelUp) extra.push(`<div class="gain-row buddy-row evo"><span>✨ ${esc(buddyName(bud.id))} 進化成「${FORM_NAMES[bud.levelUp]}」！</span><b>Lv.${bud.levelUp}</b></div>`);
+  }
   render(`<div class="screen center">
     ${levelUp ? `<div class="lvup stroke">LEVEL UP! Lv.${lv}</div>` : ''}
     <div class="ribbon stroke">${esc(banner)}</div>
@@ -374,6 +426,7 @@ function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = fa
   else if (trainUp) timers.push(setTimeout(() => { sfx.levelUp(); say(`${EXERCISES[trainUp.ex].name}升級了！`); }, 1900));
   if (dres?.newly?.length) timers.push(setTimeout(() => sfx.catch(), 2600));
   if (achs.length) timers.push(setTimeout(() => { sfx.levelUp(); say(`解鎖成就，${achs[0].name}！`); }, 3100));
+  if (bud?.levelUp) timers.push(setTimeout(() => { sfx.sparkle(); say(`${buddyName(bud.id)}進化了！`); }, 3500));
   timers.push(setTimeout(() => playMusic('home'), 3500));
   onCleanup(() => timers.forEach(clearTimeout));
   say(`收服成功！獲得${gained}元氣值${doubled ? '，雙倍獎勵！' : '！'}`);
@@ -533,6 +586,7 @@ function bossFinal() {
     const r = await workout({
       exercise: BOSS.exercise, target, monsterHTML: bossSVG('hurt'), level: stageOf(BOSS.exercise) + 1,
       label: BOSS.name, hurt: ['我的皇冠歪了！', '不要再跳了啦～', '肚子好扁…'], loseLine: '噗咻咻咻～～大王變小了！',
+      buddy: buddyForBattle(),
     });
     if (r.status === 'quit') return bossFinal();
     await collect({ spiritHTML: spiritSVG('boss'), name: BOSS.spirit });
@@ -543,6 +597,7 @@ function bossFinal() {
     const perfect = !r.manual && r.hints === 0;
     const dres = recordDaily({ boss: true, ex: BOSS.exercise, reps: target, perfect });
     recordLog({ ex: BOSS.exercise, amount: target, perfect, boss: true });
+    const bud = buddyAfterBattle({ kind: 'reps', base: BOSS.reward, daily: dres.gained, perfect, boss: true });
     const achs = checkAchievements();
     busy = false;
     rewardScreen({
@@ -550,10 +605,59 @@ function bossFinal() {
       banner: first ? 'BOSS CLEAR!' : '大王又倒了！',
       title: first ? '打倒胖胖大王！🏆' : `${BOSS.name} 第 ${S().bossWins} 次被打倒`,
       gained: BOSS.reward, doubled: false, levelUp: level() > lvBefore,
-      trainUp, daily: dres, perfect, achs,
+      trainUp, daily: dres, perfect, achs, bud,
       again: bossIntro,
     });
   });
+}
+
+// ================= 精靈夥伴 =================
+function buddyPage() {
+  const cur = buddyId();
+  const top = cur ? (() => {
+    const lv = buddyLevel(cur), pr = buddyProgress(cur);
+    return `<div class="card buddy-hero">
+      <div class="bh-pet">${spiritSVG(cur, lv)}</div>
+      <div class="b-name" style="justify-content:center">${esc(buddyName(cur))}<span class="b-lv">Lv.${lv}</span></div>
+      <div class="b-form" style="text-align:center">${FORM_NAMES[lv]}</div>
+      <div class="b-xp big"><i style="width:${pr.pct * 100}%"></i><span>${pr.next ? `親密度 ${pr.xp} / ${pr.next}` : `親密度 ${pr.xp}・已經是最高形態`}</span></div>
+      <div class="perk"><b>夥伴能力</b>${esc(PERKS[cur])}</div>
+      <div class="forms">${[1, 2, 3, 4, 5].map((l) => `<div class="form ${l <= lv ? 'on' : ''}">
+        ${spiritSVG(cur, l)}<span>Lv.${l}</span><small>${l <= lv ? FORM_NAMES[l] : `親密度 ${BUDDY_LEVELS[l - 1]}`}</small></div>`).join('')}</div>
+    </div>`;
+  })() : bunny('還沒有夥伴喔！先去收服第一隻精靈吧～');
+  render(`<div class="screen">
+    <h1 class="title stroke" style="text-align:center">🧚 精靈夥伴</h1>
+    ${top}
+    <div class="card">
+      <div style="text-align:center"><div class="panel-head">選擇夥伴</div></div>
+      <div class="buddy-pick">
+        ${BUDDY_IDS.map((id) => {
+          const got = isCollected(id), lv = got ? buddyLevel(id) : 1;
+          return `<button class="pick ${id === cur ? 'cur' : ''} ${got ? '' : 'locked'}" data-id="${id}" ${got ? '' : 'disabled'}>
+            ${spiritSVG(id, lv)}<b>${got ? esc(buddyName(id)) : '？？？'}</b>
+            <small>${got ? (id === cur ? '目前夥伴' : `Lv.${lv}・換牠`) : '收服後解鎖'}</small></button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="card" style="line-height:1.8">
+      <div style="text-align:center"><div class="panel-head">怎麼增加親密度</div></div>
+      ⚔️ 一起打完一場 <b>+10</b><br>
+      ✨ 完美姿勢 <b>+5</b><br>
+      🏠 在夥伴自己的窩打怪 <b>+5</b><br>
+      👑 一起打倒大王 <b>+20</b><br>
+      💖 每天摸摸頭（點主畫面的夥伴）<b>+5</b>
+    </div>
+    <button class="btn" id="home">回主畫面</button>
+  </div>`);
+  $$('.pick:not(.locked)').forEach((b) => on(b, 'click', () => {
+    if (b.dataset.id === cur) return;
+    setBuddy(b.dataset.id);
+    sfx.catch();
+    say(`${buddyName(b.dataset.id)}，我們一起加油！`);
+    buddyPage();
+  }));
+  on('#home', 'click', home);
 }
 
 // ================= 訓練等級（漸進式） =================
