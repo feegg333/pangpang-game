@@ -339,6 +339,55 @@ svg .eyes { transform-box: fill-box; transform-origin: center; animation: blink 
 .gain-row.chest { background: #FFE3EF; animation-delay: 2.8s; }
 .gain-row.perfect { background: #E3FBEE; justify-content: center; }
 
+/* 家庭成員 */
+button.avatar { padding: 0; cursor: pointer; font: inherit; }
+.pf-emoji { font-size: 30px; line-height: 1; }
+.hud-name { cursor: pointer; }
+.swap { font-size: 11px; font-weight: 900; padding: 1px 7px; margin-left: 4px; border-radius: 8px; background: rgba(255,255,255,.2); vertical-align: 2px; }
+.rank-card {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px; width: 100%; cursor: pointer; text-align: left;
+  font: inherit; color: var(--ink); background: linear-gradient(135deg, #E3F4FF, #F0E6FF);
+  border: 3.5px solid var(--ink); border-radius: 18px; box-shadow: 0 5px 0 var(--ink);
+}
+.rc-medal { font-size: 28px; flex: none; font-weight: 900; }
+.rc-text { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; line-height: 1.4; }
+.rc-text b { display: block; font-size: 15px; font-weight: 900; }
+.rc-faces { display: flex; flex: none; }
+.rc-faces i { font-style: normal; width: 30px; height: 30px; margin-left: -8px; border-radius: 50%; background: #fff; border: 2.5px solid var(--ink); display: grid; place-items: center; font-size: 17px; }
+.rc-faces i.me { background: var(--yellow); }
+.fam-list { display: flex; flex-direction: column; gap: 10px; }
+.fam { display: flex; gap: 8px; align-items: stretch; }
+.fam-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; text-align: left;
+  font: inherit; color: var(--ink); background: #fff; border: 3.5px solid var(--ink); border-radius: 18px; box-shadow: 0 5px 0 var(--ink);
+}
+.fam.cur .fam-main { background: #FFF2C2; }
+.fam-ava { width: 50px; height: 50px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 30px; background: var(--panel-2); border: 3px solid var(--ink); }
+.fam-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fam-info b { font-size: 17px; font-weight: 900; }
+.fam-info small { font-size: 12px; font-weight: 700; color: var(--muted); }
+.fam-tag { flex: none; font-size: 12px; font-weight: 900; padding: 2px 8px; border-radius: 10px; background: var(--mint); color: #fff; border: 2px solid var(--ink); }
+.fam:not(.cur) .fam-tag { background: var(--blue); }
+.fam-del {
+  flex: none; width: 64px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 900; color: var(--muted);
+  background: #EEE8F5; border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 4px 0 var(--ink);
+}
+.fam-del.armed { background: var(--red); color: #fff; }
+.podium { display: flex; flex-direction: column; gap: 6px; }
+.pod-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 14px; background: var(--panel-2); border: 2.5px solid var(--ink); }
+.pod-row.me { background: #FFF2C2; }
+.pod-rank { width: 30px; flex: none; text-align: center; font-family: var(--num); font-weight: 800; font-size: 20px; }
+.pod-ava { font-size: 24px; flex: none; }
+.pod-name { flex: 1; min-width: 0; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod-val { flex: none; text-align: right; font-size: 12px; font-weight: 700; }
+.pod-val b { font-family: var(--num); font-size: 20px; font-variant-numeric: tabular-nums; }
+.pod-val small { display: block; color: var(--muted); font-size: 11px; }
+.ava-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 4px; }
+.ava { aspect-ratio: 1; font-size: 26px; border-radius: 14px; background: var(--panel-2); border: 2.5px solid #D9CCEA; cursor: pointer; padding: 0; }
+.ava.on { border: 3.5px solid var(--ink); background: #FFF2C2; box-shadow: 0 3px 0 var(--ink); }
+.player-pill { cursor: pointer; font: inherit; font-weight: 900; color: var(--ink); }
+.player-pill u { color: var(--pink); }
+
 /* 精靈夥伴 */
 .buddy-bar {
   display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 22px;

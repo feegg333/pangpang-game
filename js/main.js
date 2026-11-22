@@ -1,8 +1,14 @@
 // 打倒胖胖怪！主流程
 import { NESTS, NEST_ORDER, BOSS, EXERCISES, REWARD } from './config.js';
 import {
-  S, update, fatNestToday, today, level, allCollected, recordWin, recordBossWin, resetAll, reload,
+  S, update, fatNestToday, today, level, allCollected, recordWin, recordBossWin, resetAll, reload, activeProfile, profileList,
 } from './store.js';
+import { familyPage, homeRankCard } from './family.js';
+
+// 打開家庭成員頁；afterPick：換好人之後要去哪
+function openFamily(afterPick = home, onDone = home) {
+  familyPage({ onDone, onPicked: afterPick, onNew: () => tutorial() });
+}
 import { unlockAudio, say, sfx, vibrate, cnNum } from './audio.js';
 import { requestMotion } from './camera.js';
 import { monsterSVG, spiritSVG, bossSVG, bunnySVG } from './monsters.js';
@@ -227,9 +233,9 @@ function home() {
 
   render(`<div class="screen">
     <div class="hud">
-      <div class="avatar">${bunnySVG()}<span class="lv-badge">Lv${lv}</span></div>
+      <button class="avatar" id="avatar" aria-label="切換家庭成員"><span class="pf-emoji">${activeProfile().avatar}</span><span class="lv-badge">Lv${lv}</span></button>
       <div class="hud-main">
-        <div class="hud-name">${esc(st.name)}</div>
+        <div class="hud-name" id="whoName">${esc(st.name)} <span class="swap">${profileList().length > 1 ? '換人 ▾' : '＋家人'}</span></div>
         <div class="xpbar"><i style="width:${(inLv / REWARD.perLevel) * 100}%"></i><span>⚡ ${inLv} / ${REWARD.perLevel}</span></div>
       </div>
       <div class="chips">
@@ -239,6 +245,7 @@ function home() {
       <button class="mute" id="mute" aria-label="背景音樂開關">${st.settings.music !== false ? '🎵' : '🔇'}</button>
     </div>
     ${buddyBar}
+    ${homeRankCard()}
     ${quest}
     ${tip}
     <div class="map">
@@ -274,6 +281,9 @@ function home() {
     if (!bossOpen) { sfx.oops(); return toast(`還要收服 ${4 - got} 隻胖胖怪，城堡才會開門！`); }
     await gesture(); bossIntro();
   });
+  on('#avatar', 'click', () => openFamily());
+  on('#whoName', 'click', () => openFamily());
+  on('#rankCard', 'click', () => openFamily());
   on('#mute', 'click', () => {
     unlockAudio();
     const onNow = S().settings.music === false;
@@ -320,7 +330,9 @@ function encounterGate(id) {
   const fat = isFatToday(id);
   playMusic('home');
   sfx.alert();
+  const me = activeProfile();
   render(`<div class="screen center">
+    <button class="pill player-pill" id="who">${me.avatar} ${esc(me.name || S().name)} 在玩・<u>換人</u></button>
     <h1 class="title stroke">發現${n.emoji}${n.nest}！</h1>
     <div class="alert-mark">!</div>
     <div class="silhouette wobble">${monsterSVG(id)}</div>
@@ -330,6 +342,12 @@ function encounterGate(id) {
   </div>`);
   on('#home', 'click', home);
   on('#open', 'click', async () => { await gesture(); encounter(id); });
+  // 換人後回到這個窩；新成員先做新手教學，再回來打這隻
+  on('#who', 'click', () => familyPage({
+    onDone: () => encounterGate(id),
+    onPicked: () => encounterGate(id),
+    onNew: () => { update((s) => (s.pendingNest = id)); tutorial(); },
+  }));
 }
 
 async function encounter(id) {
