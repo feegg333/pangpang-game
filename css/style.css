@@ -139,6 +139,12 @@ input.text:focus { outline: none; border-color: var(--purple); background: #fff;
 @keyframes hop { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } 55% { transform: translateY(0) scaleY(.92); } }
 
 /* 角色動畫 */
+svg .eyes { transform-box: fill-box; transform-origin: center; animation: blink 4.2s infinite; }
+@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+.spirit-svg .wings { transform-origin: 100px 108px; animation: flap .5s ease-in-out infinite alternate; }
+@keyframes flap { from { transform: scaleX(1); } to { transform: scaleX(.86) translateY(-3px); } }
+.bunny-svg .ears { transform-origin: 60px 60px; animation: ears 3s ease-in-out infinite; }
+@keyframes ears { 0%, 80%, 100% { transform: rotate(0); } 88% { transform: rotate(-6deg); } 94% { transform: rotate(4deg); } }
 .monster-svg { width: 100%; height: auto; overflow: visible; }
 .wobble { animation: wobble 2.2s ease-in-out infinite; transform-origin: 50% 100%; }
 @keyframes wobble { 0%,100% { transform: rotate(-3deg) scale(1,1); } 50% { transform: rotate(3deg) scale(1.03,.97); } }
@@ -198,6 +204,17 @@ input.text:focus { outline: none; border-color: var(--purple); background: #fff;
   display: flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 999px;
   background: rgba(255,255,255,.15); font-family: var(--num); font-weight: 800; font-size: 14px; white-space: nowrap;
 }
+
+.mute {
+  width: 40px; height: 40px; flex: none; border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1;
+  background: rgba(255,255,255,.15); border: 2.5px solid #fff; display: grid; place-items: center;
+}
+.mute:active { transform: scale(.92); }
+.lvup {
+  font-family: var(--num); font-size: 34px; font-weight: 800; letter-spacing: 2px; color: var(--yellow);
+  animation: lvup 1s cubic-bezier(.3,1.6,.5,1) 1.8s both, btnPulse 1s 2.8s infinite;
+}
+@keyframes lvup { from { transform: scale(0) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(-3deg); opacity: 1; } }
 
 /* 今日任務 */
 .quest {

@@ -90,6 +90,7 @@ js/exercises.js   深蹲 / 開合跳 / 高抬腿 / 棒式 / 波比跳的偵測�
 js/pose.js        MediaPipe 骨架辨識
 js/camera.js      相機、陀螺儀、螢幕常亮
 js/audio.js       音效合成＋中文語音
+js/music.js       背景音樂（原創 8-bit 小曲，WebAudio 即時合成：主畫面／戰鬥／大王）
 js/monsters.js    SVG 角色
 js/nfc.js         Android 遊戲內感應（Web NFC）
 js/store.js       進度存檔

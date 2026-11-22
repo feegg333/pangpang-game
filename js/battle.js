@@ -4,6 +4,7 @@ import { startCamera, stopCamera, trackOrientation, keepAwake, releaseAwake } fr
 import { loadPose, detect, drawSkeleton, resetSmoothing } from './pose.js';
 import { makeTracker } from './exercises.js';
 import { say, sfx, cnNum, vibrate, stopSpeech } from './audio.js';
+import { duckMusic } from './music.js';
 import { render, $, on, onCleanup, sleep, DEBUG, esc } from './ui.js';
 
 // ---------- 共用：後鏡頭 AR 舞台 ----------
@@ -35,7 +36,8 @@ async function arStage(innerHTML, uiHTML) {
 }
 
 // ① 胖胖怪登場
-export async function arIntro({ monsterHTML, speech, mission, missionSub, tag = 'BATTLE', button = '我準備好了！' }) {
+export async function arIntro({ monsterHTML, speech, mission, missionSub, tag = 'BATTLE', button = '我準備好了！', boss = false }) {
+  (boss ? sfx.bossAppear : sfx.appear)();
   const root = await arStage(
     `<div class="speech">${esc(speech)}</div><div class="inner wobble">${monsterHTML}</div>`,
     `<div class="ui bottom">
@@ -49,11 +51,12 @@ export async function arIntro({ monsterHTML, speech, mission, missionSub, tag = 
 // ③ 收服精靈
 export async function collect({ spiritHTML, name }) {
   say('拿起我拿起我！把精靈收進來！');
+  sfx.sparkle();
   const root = await arStage(
     `<div class="speech">點我收服！</div><div class="inner">${spiritHTML}</div>`,
     `<div class="ui bottom"><div class="mission"><span class="m-tag" style="background:var(--mint)">CATCH!</span><br>${esc(name)} 出現了！<small>拿起手機，點一下精靈收服牠 ✨</small></div></div>`,
   );
-  return new Promise((res) => on($('#arObj', root), 'click', () => { sfx.ding(); vibrate([40, 40, 80]); res(); }));
+  return new Promise((res) => on($('#arObj', root), 'click', () => { sfx.catch(); vibrate([40, 40, 80]); res(); }));
 }
 
 // ② 運動戰鬥：回傳 'done' 或 'quit'
@@ -88,7 +91,8 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
   const tracker = makeTracker(exercise);
 
   keepAwake();
-  onCleanup(() => { alive = false; cancelAnimationFrame(raf); stopCamera(); releaseAwake(); stopSpeech(); });
+  duckMusic(true);
+  onCleanup(() => { alive = false; cancelAnimationFrame(raf); stopCamera(); releaseAwake(); stopSpeech(); duckMusic(false); });
 
   const coach = (text, cls = '', ms = 0) => {
     coachEl.hidden = false;
@@ -135,9 +139,10 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
   const finished = new Promise((r) => (resolveFn = r));
 
   const onRep = () => {
-    sfx.pop(); vibrate(30); bump();
+    sfx.hit(); vibrate(30); bump();
     if (!timed) {
       const n = Math.floor(progress);
+      if (n > 0 && n % 5 === 0) sfx.combo(n);
       say(cnNum(n), { interrupt: true, rate: 1.3 });
       if (n === target - 3) coach('最後三下！加油加油～', 'good', 1500);
       else if (n > 0 && n % 5 === 0 && hurt.length) coach(hurt[(n / 5) % hurt.length | 0], '', 1400);
@@ -146,7 +151,9 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
 
   const onSecond = (remain) => {
     if (remain <= 0) return;
-    sfx.tick();
+    if (remain <= 5) sfx.countdown();
+    else if (remain % 3 === 0) sfx.squish();
+    else sfx.tick();
     if ([20, 10].includes(remain)) say(`還有${cnNum(remain)}秒`, { interrupt: true });
     else if (remain <= 5) say(cnNum(remain), { interrupt: true, rate: 1.3 });
     if (remain === 15 && hurt.length) coach(hurt[0], '', 1400);
@@ -157,7 +164,7 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     cancelAnimationFrame(raf);
     hpBar.style.width = '0%';
     mini.style.transform = 'scale(.35)';
-    sfx.deflate(); vibrate([60, 60, 160]);
+    sfx.ko(); sfx.deflate(); vibrate([60, 60, 160]);
     countEl.hidden = true;
     const ko = document.createElement('div');
     ko.className = 'ko';
@@ -181,10 +188,10 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     $('.stage', root).appendChild(cd);
     for (const n of [3, 2, 1]) {
       if (!alive) return;
-      cd.innerHTML = `<span>${n}</span>`; sfx.tick(); say(cnNum(n), { interrupt: true, rate: 1.2 });
+      cd.innerHTML = `<span>${n}</span>`; sfx.countdown(); say(cnNum(n), { interrupt: true, rate: 1.2 });
       await sleep(900);
     }
-    cd.innerHTML = '<span>GO!</span>'; sfx.boing(); say('開始！', { interrupt: true });
+    cd.innerHTML = '<span>GO!</span>'; sfx.go(); say('開始！', { interrupt: true });
     await sleep(500);
     cd.remove();
     guideEl.remove();
@@ -232,14 +239,14 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     if (r.lost) {
       if (!lostSince) lostSince = now;
       if (now - lostSince > 1500 && !lostSaid) {
-        lostSaid = true; coach('勇者你去哪了？👀', 'warn'); say('勇者你去哪了？');
+        lostSaid = true; coach('勇者你去哪了？👀', 'warn'); sfx.heartbeat(); say('勇者你去哪了？');
       }
       return;
     }
     if (lostSaid) coachEl.hidden = true;
     lostSince = 0; lostSaid = false;
     loop.good = r.good;
-    if (r.hint) { coach(r.hint, 'warn', 1600); sfx.oops(); say(r.hint, { interrupt: true }); }
+    if (r.hint) { coach(r.hint, 'warn', 1600); sfx.warn(); say(r.hint, { interrupt: true }); }
     if (timed) { progress = r.progress; tickTimed(); }
     else if (r.rep) { progress = r.progress; showProgress(); onRep(); if (progress >= target) finish(); }
   };

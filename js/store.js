@@ -13,7 +13,7 @@ const fresh = () => ({
   fatClaimed: '',   // 已領取雙倍的日期 'YYYY-MM-DD'
   streak: { last: '', count: 0 },
   boss: null,       // 進行中的大王戰 { seq, idx, deadline, phase }
-  settings: { voice: true },
+  settings: { voice: true, music: true, sfx: true },
 });
 
 let state;

@@ -3,14 +3,22 @@ import { NESTS, NEST_ORDER, BOSS, EXERCISES, REWARD } from './config.js';
 import {
   S, update, placeOf, fatNestToday, today, level, allCollected, recordWin, recordBossWin, resetAll, reload,
 } from './store.js';
-import { unlockAudio, say, sfx, vibrate } from './audio.js';
+import { unlockAudio, say, sfx, vibrate, cnNum } from './audio.js';
 import { requestMotion } from './camera.js';
 import { monsterSVG, spiritSVG, bossSVG, bunnySVG } from './monsters.js';
 import { render, $, $$, on, onCleanup, esc, bunny, toast, confetti, params, DEBUG } from './ui.js';
 import { arIntro, workout, collect } from './battle.js';
 import { enableInAppNfc, setNfcHandler, webNfcSupported, nfcActive } from './nfc.js';
+import { playMusic, stopMusic, setMusicEnabled } from './music.js';
 
 let busy = false; // 戰鬥中，忽略遊戲內感應
+
+// 所有糖果按鈕都有「嗶」的按鍵音
+// 第一次點畫面任何地方，就解鎖聲音並開始播背景音樂（手機瀏覽器規定）
+document.addEventListener('pointerdown', (e) => {
+  unlockAudio();
+  if (e.target.closest('.btn, .node, .quest')) sfx.click();
+}, true);
 
 // 在使用者點擊時解鎖：聲音、陀螺儀、（Android）遊戲內感應
 function gesture() {
@@ -53,6 +61,7 @@ function badTag() {
 
 // ================= 開場（第一次玩） =================
 function onboarding() {
+  playMusic('home');
   render(`<div class="screen center">
     <div class="logo">
       <h1 class="title stroke">打倒<span class="accent">胖胖怪</span>！</h1>
@@ -128,6 +137,7 @@ function home() {
   if (b?.phase === 'run') return bossRun();
   if (b?.phase === 'final') return bossFinal();
   busy = false;
+  playMusic('home');
   const st = S();
   const lv = level();
   const inLv = st.energy % REWARD.perLevel;
@@ -184,6 +194,7 @@ function home() {
         <span class="chip">🔥 ${st.streak.count || 0}</span>
         <span class="chip">✨ ${got}/4</span>
       </div>
+      <button class="mute" id="mute" aria-label="背景音樂開關">${st.settings.music !== false ? '🎵' : '🔇'}</button>
     </div>
     ${quest}
     ${tip}
@@ -216,6 +227,15 @@ function home() {
     if (!bossOpen) { sfx.oops(); return toast(`還要收服 ${4 - got} 隻胖胖怪，城堡才會開門！`); }
     await gesture(); bossIntro();
   });
+  on('#mute', 'click', () => {
+    unlockAudio();
+    const onNow = S().settings.music === false;
+    update((s) => (s.settings.music = onNow));
+    setMusicEnabled(onNow);
+    if (onNow) playMusic('home');
+    $('#mute').textContent = onNow ? '🎵' : '🔇';
+    toast(onNow ? '背景音樂：開' : '背景音樂：關', 1200);
+  });
   on('#quest', 'click', () => toast(`走去 ${placeOf(fat)} 碰 ${NESTS[fat].emoji}${NESTS[fat].nest} 的貼紙！`));
   on('#dex', 'click', dex);
   on('#set', 'click', settings);
@@ -231,6 +251,8 @@ function home() {
 function encounterGate(id) {
   const n = NESTS[id];
   const fat = isFatToday(id);
+  playMusic('home');
+  sfx.alert();
   render(`<div class="screen center">
     <div class="pill">📍 ${esc(placeOf(id))}</div>
     <h1 class="title stroke">發現${n.emoji}${n.nest}！</h1>
@@ -248,6 +270,7 @@ async function encounter(id) {
   busy = true;
   const n = NESTS[id], ex = EXERCISES[n.exercise];
   const fat = isFatToday(id);
+  playMusic('battle');
   say(n.taunt);
   await arIntro({
     monsterHTML: monsterSVG(id),
@@ -262,13 +285,14 @@ async function encounter(id) {
   });
   if (r === 'quit') { busy = false; return home(); }
   await collect({ spiritHTML: spiritSVG(id), name: n.spirit });
+  const lvBefore = level();
   const res = recordWin(id);
   busy = false;
   rewardScreen({
     spiritHTML: spiritSVG(id),
     banner: res.firstTime ? '收服成功！' : '再次消風！',
     title: res.firstTime ? `${n.spirit} 加入圖鑑` : `${n.monster} 又被打扁了`,
-    gained: res.gained, doubled: res.doubled,
+    gained: res.gained, doubled: res.doubled, levelUp: level() > lvBefore,
     again: () => encounter(id),
   });
 }
@@ -283,9 +307,11 @@ function nextHint() {
   return '今天的雙倍獎勵拿到了！還想運動的話，再打一次也有元氣值喔～';
 }
 
-function rewardScreen({ spiritHTML, banner, title, gained, doubled, again }) {
+function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = false, again }) {
   const lv = level();
+  stopMusic(0.2);
   render(`<div class="screen center">
+    ${levelUp ? `<div class="lvup stroke">LEVEL UP! Lv.${lv}</div>` : ''}
     <div class="ribbon stroke">${esc(banner)}</div>
     <div class="clear-wrap"><div class="sunburst"></div>${spiritHTML}</div>
     <div class="stars"><span>⭐</span><span>⭐</span><span>⭐</span></div>
@@ -300,14 +326,20 @@ function rewardScreen({ spiritHTML, banner, title, gained, doubled, again }) {
     </div>
   </div>`);
   confetti(); sfx.win();
+  // 星星依序彈出（配合 CSS 動畫的延遲）
+  const timers = [0, 1, 2].map((i) => setTimeout(() => sfx.star(i), 250 + i * 150));
+  if (levelUp) timers.push(setTimeout(() => { sfx.levelUp(); say(`升級了！等級${cnNum(lv)}！`); }, 1900));
+  timers.push(setTimeout(() => playMusic('home'), 3500));
+  onCleanup(() => timers.forEach(clearTimeout));
   say(`收服成功！獲得${gained}元氣值${doubled ? '，雙倍獎勵！' : '！'}`);
-  // 數字往上跳
+  // 數字往上跳，配上投幣聲
   const el = $('#gain');
-  const t0 = performance.now();
-  let raf = 0;
+  let t0 = 0, raf = 0, lastCoin = 0;
   const step = (t) => {
-    const p = Math.min(1, (t - t0) / 900);
+    if (!t0) t0 = t + 700;
+    const p = Math.max(0, Math.min(1, (t - t0) / 900));
     el.textContent = '+' + Math.round(gained * (1 - Math.pow(1 - p, 3)));
+    if (p > 0 && p < 1 && t - lastCoin > 90) { sfx.coin(); lastCoin = t; }
     if (p < 1) raf = requestAnimationFrame(step);
   };
   raf = requestAnimationFrame(step);
@@ -325,11 +357,12 @@ function shuffle(a) {
 
 async function bossIntro() {
   busy = true;
+  playMusic('boss');
   say('哼哼！想打我？先跑完我的路線！');
   await arIntro({
     monsterHTML: bossSVG(),
     speech: '哼哼！想打我？先跑完我的路線！',
-    tag: 'BOSS',
+    tag: 'BOSS', boss: true,
     mission: '胖胖大王出招！',
     missionSub: `依序跑去 4 個窩感應，限時 ${BOSS.timeLimit / 60} 分鐘`,
     button: '接受挑戰！',
@@ -359,6 +392,7 @@ async function bossIntro() {
 
 function bossRun(msg = '', good = true) {
   busy = true;
+  playMusic('boss');
   const b = S().boss;
   const next = b.seq[b.idx];
   const scale = 1 - b.idx * 0.15;
@@ -425,6 +459,8 @@ function bossFail() {
     <button class="btn big" id="retry">再挑戰一次！</button>
     <button class="btn white small" id="home">回主畫面</button>
   </div>`);
+  stopMusic(0.2);
+  sfx.fail();
   say('時間到了！大王回血一點點，再挑戰一次吧！');
   on('#home', 'click', home);
   on('#retry', 'click', async () => { await gesture(); bossIntro(); });
@@ -432,6 +468,7 @@ function bossFail() {
 
 function bossFinal() {
   busy = true;
+  playMusic('boss');
   render(`<div class="screen center">
     <div class="ribbon stroke" style="background:linear-gradient(180deg,#FF8A7A,#FF4D5E)">FINAL</div>
     <div style="width:140px" class="wobble shake">${bossSVG('hurt')}</div>
@@ -454,13 +491,14 @@ function bossFinal() {
     if (r === 'quit') return bossFinal();
     await collect({ spiritHTML: spiritSVG('boss'), name: BOSS.spirit });
     const first = !S().bossWins;
+    const lvBefore = level();
     recordBossWin(BOSS.reward);
     busy = false;
     rewardScreen({
       spiritHTML: spiritSVG('boss'),
       banner: first ? 'BOSS CLEAR!' : '大王又倒了！',
       title: first ? '打倒胖胖大王！🏆' : `${BOSS.name} 第 ${S().bossWins} 次被打倒`,
-      gained: BOSS.reward, doubled: false,
+      gained: BOSS.reward, doubled: false, levelUp: level() > lvBefore,
       again: bossIntro,
     });
   });
@@ -490,6 +528,8 @@ function settings() {
     <h1 class="title stroke" style="text-align:center">⚙️ 設定</h1>
     <div class="card" style="display:flex;flex-direction:column;gap:12px">
       <label class="field">勇者名字<input class="text" id="name" maxlength="10" value="${esc(st.name)}" /></label>
+      <div class="toggle"><span>🎵 背景音樂</span><input type="checkbox" id="music" ${st.settings.music !== false ? 'checked' : ''} style="width:26px;height:26px" /></div>
+      <div class="toggle"><span>💥 遊戲音效</span><input type="checkbox" id="sfx" ${st.settings.sfx !== false ? 'checked' : ''} style="width:26px;height:26px" /></div>
       <div class="toggle"><span>🔊 語音報數與提示</span><input type="checkbox" id="voice" ${st.settings.voice ? 'checked' : ''} style="width:26px;height:26px" /></div>
       <button class="btn small sky" id="test">測試語音</button>
     </div>
@@ -510,6 +550,7 @@ function settings() {
     <button class="btn" id="save">儲存並回主畫面</button>
     <button class="btn white small" id="reset" style="align-self:center">清除所有進度</button>
   </div>`);
+  on('#music', 'change', (e) => { unlockAudio(); setMusicEnabled(e.target.checked); if (e.target.checked) playMusic('home'); });
   on('#test', 'click', () => { unlockAudio(); update((s) => (s.settings.voice = true)); $('#voice').checked = true; say('一！二！三！勇者加油！'); });
   $$('.copy').forEach((b) => on(b, 'click', async () => {
     try { await navigator.clipboard.writeText(tagUrl(b.dataset.id)); toast('已複製！'); } catch { toast('請長按網址手動複製'); }
@@ -518,8 +559,11 @@ function settings() {
     update((s) => {
       s.name = $('#name').value.trim() || s.name;
       s.settings.voice = $('#voice').checked;
+      s.settings.music = $('#music').checked;
+      s.settings.sfx = $('#sfx').checked;
       $$('.place').forEach((i) => { if (i.value.trim()) s.places[i.dataset.id] = i.value.trim(); });
     });
+    setMusicEnabled(S().settings.music !== false);
     toast('儲存好了！');
     home();
   });
