@@ -330,9 +330,64 @@ svg .eyes { transform-box: fill-box; transform-origin: center; animation: blink 
 .gain-row b { font-family: var(--num); color: var(--pink); white-space: nowrap; }
 .gain-row.train { background: #E3F4FF; }
 .gain-row.train b { color: var(--blue); font-family: var(--display); }
-.gain-row.mission { background: #FFF7D6; animation-delay: 2.4s; }
+.gain-row.mdone { background: #FFF7D6; animation-delay: 2.4s; }
 .gain-row.chest { background: #FFE3EF; animation-delay: 2.8s; }
 .gain-row.perfect { background: #E3FBEE; justify-content: center; }
+
+/* 運動紀錄 */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px; border-radius: 14px; background: var(--panel-2); border: 2.5px solid var(--ink); min-width: 0; }
+.tile b { font-family: var(--num); font-size: 24px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 11px; font-weight: 900; color: var(--muted); white-space: nowrap; }
+.c-title { font-weight: 900; font-size: 15px; margin-bottom: 2px; }
+.chart-wrap { position: relative; }
+.week-chart { width: 100%; height: auto; display: block; }
+.week-chart .c-axis { font: 700 11px var(--num); fill: var(--muted); }
+.week-chart .c-axis.today { fill: var(--ink); font-weight: 800; }
+.week-chart .c-val { font: 800 12px var(--num); fill: var(--ink); }
+.week-chart .bar { cursor: pointer; }
+.week-chart .bar.sel path { fill: var(--pink); }
+.c-tip {
+  margin-top: 6px; padding: 8px 12px; border-radius: 12px; background: var(--ink); color: #fff;
+  font-size: 13px; font-weight: 700; line-height: 1.5;
+}
+.c-tip b { display: block; color: var(--yellow); }
+.c-note { margin: 6px 0 0; font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; }
+.cal-head, .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.cal-head span { font-size: 12px; font-weight: 900; color: var(--muted); }
+.cal-cell {
+  position: relative; aspect-ratio: 1; max-width: 100%; border-radius: 10px; background: var(--panel-2);
+  display: grid; place-items: center; font-family: var(--num); font-size: 13px; font-weight: 800; color: var(--muted);
+}
+.cal-cell.empty { background: none; }
+.cal-cell.on { background: #FFE0EC; color: var(--ink); }
+.cal-cell.on i { position: absolute; font-style: normal; font-size: 20px; opacity: .9; }
+.cal-cell.on b { position: absolute; right: 3px; bottom: 0; font-size: 10px; }
+.cal-cell.today { outline: 3px solid var(--purple); outline-offset: -1px; }
+.totals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+.totals div { display: flex; justify-content: space-between; gap: 6px; border-bottom: 2px dashed #E6DDF0; padding-bottom: 4px; font-weight: 700; font-size: 14px; }
+.totals span { color: var(--muted); }
+.totals b { font-family: var(--num); font-variant-numeric: tabular-nums; }
+
+/* 成就 */
+.ach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ach {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; padding: 12px 10px;
+  background: #EEE8F5; border: 3.5px solid var(--ink); border-radius: 18px; box-shadow: 0 5px 0 var(--ink); min-width: 0;
+}
+.ach.got { background: linear-gradient(160deg, #FFF7D6, #FFE3EF); }
+.ach-ico {
+  width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; font-size: 30px;
+  background: #fff; border: 3px solid var(--ink); filter: grayscale(1); opacity: .45;
+}
+.ach.got .ach-ico { filter: none; opacity: 1; background: radial-gradient(#fff, #FFE48A); box-shadow: 0 0 0 4px rgba(255,201,60,.4); }
+.ach-name { font-weight: 900; font-size: 15px; }
+.ach-desc { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.35; }
+.ach-date { font-family: var(--num); font-size: 12px; font-weight: 800; color: var(--muted); }
+.ach.got .ach-date { color: var(--pink); }
+.ach-bar { width: 100%; height: 10px; margin-top: 4px; border-radius: 999px; background: #fff; border: 2px solid var(--ink); overflow: hidden; }
+.ach-bar i { display: block; height: 100%; background: var(--purple-hi); }
+.gain-row.ach-row { background: #FFF2C2; animation-delay: 3s; }
 
 /* 訓練等級 */
 .t-group { margin: 6px 0 0; font-size: 22px; font-weight: 900; }

@@ -97,7 +97,7 @@ export function recordDaily({ nest = null, ex = null, reps = 0, hold = 0, perfec
     d.missions.forEach((m, i) => {
       if (!d.done.includes(i) && statOf(m, st) >= m.goal) { d.done.push(i); newly.push(m); gained += m.reward; }
     });
-    if (!d.bonus && d.done.length === d.missions.length) { d.bonus = true; bonus = true; gained += BONUS; }
+    if (!d.bonus && d.done.length === d.missions.length) { d.bonus = true; bonus = true; gained += BONUS; s.chests = (s.chests || 0) + 1; }
     s.energy += gained;
   });
   return { newly, bonus, gained };

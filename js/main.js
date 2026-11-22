@@ -13,6 +13,8 @@ import { playMusic, stopMusic, setMusicEnabled } from './music.js';
 import {
   nestExercise, stageOf, targetOf, toNext, isMaxed, timesDone, recordExercise, daily, missionProgress, recordDaily, BONUS,
 } from './daily.js';
+import { recordLog, checkAchievements, ACH_REWARD } from './progress.js';
+import { recordsPage, achievementsPage } from './pages.js';
 
 let busy = false; // 戰鬥中，忽略遊戲內感應
 
@@ -141,6 +143,9 @@ function home() {
   if (b?.phase === 'final') return bossFinal();
   busy = false;
   playMusic('home');
+  // 舊進度可能已經達成某些成就（例如連續天數），回主畫面時補發
+  const newAch = checkAchievements();
+  if (newAch.length) setTimeout(() => { sfx.levelUp(); toast(`🏅 解鎖成就：${newAch.map((a) => a.name).join('、')}（+${newAch.length * ACH_REWARD}）`, 3000); }, 400);
   const st = S();
   const lv = level();
   const inLv = st.energy % REWARD.perLevel;
@@ -224,6 +229,8 @@ function home() {
     ${webNfcSupported() && !nfcActive() ? `<button class="btn sky" id="nfc">📡 開啟遊戲內感應</button>` : ''}
     <div class="dock">
       <button class="btn mint" id="train">💪 訓練</button>
+      <button class="btn sky" id="rec">📅 紀錄</button>
+      <button class="btn" id="ach">🏅 成就</button>
       <button class="btn yellow" id="dex">📖 圖鑑</button>
       <button class="btn purple" id="set">⚙️ 設定</button>
     </div>
@@ -251,6 +258,8 @@ function home() {
   });
   on('#dex', 'click', dex);
   on('#train', 'click', training);
+  on('#rec', 'click', () => recordsPage(home));
+  on('#ach', 'click', () => achievementsPage(home));
   on('#set', 'click', settings);
   on('#nfc', 'click', async () => {
     gesture();
@@ -307,13 +316,15 @@ async function encounter(id) {
     nest: id, ex: exId, perfect,
     reps: ex.kind === 'reps' ? target : 0, hold: ex.kind === 'hold' ? target : 0,
   });
+  recordLog({ ex: exId, amount: target, perfect });
+  const achs = checkAchievements();
   busy = false;
   rewardScreen({
     spiritHTML: spiritSVG(id),
     banner: res.firstTime ? '收服成功！' : '再次消風！',
     title: res.firstTime ? `${n.spirit} 加入圖鑑` : `${n.monster} 又被打扁了`,
     gained: res.gained, doubled: res.doubled, levelUp: level() > lvBefore,
-    trainUp, daily: dres, perfect,
+    trainUp, daily: dres, perfect, achs,
     again: () => encounter(id),
   });
 }
@@ -328,7 +339,7 @@ function nextHint() {
   return '今天的雙倍獎勵拿到了！還想運動的話，再打一次也有元氣值喔～';
 }
 
-function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = false, trainUp = null, daily: dres = null, perfect = false, again }) {
+function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = false, trainUp = null, daily: dres = null, perfect = false, achs = [], again }) {
   const lv = level();
   stopMusic(0.2);
   const extra = [];
@@ -337,8 +348,9 @@ function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = fa
     const e = EXERCISES[trainUp.ex];
     extra.push(`<div class="gain-row train"><span>💪 ${e.name} 升到 Lv.${trainUp.stage + 1}！</span><b>下次 ${trainUp.target}${e.unit}</b></div>`);
   }
-  (dres?.newly || []).forEach((m) => extra.push(`<div class="gain-row mission"><span>📜 任務完成：${esc(m.text)}</span><b>+${m.reward}</b></div>`));
+  (dres?.newly || []).forEach((m) => extra.push(`<div class="gain-row mdone"><span>📜 任務完成：${esc(m.text)}</span><b>+${m.reward}</b></div>`));
   if (dres?.bonus) extra.push(`<div class="gain-row chest"><span>🎁 今日任務全部完成！寶箱</span><b>+${BONUS}</b></div>`);
+  achs.forEach((a) => extra.push(`<div class="gain-row ach-row"><span>🏅 成就解鎖：${a.icon} ${esc(a.name)}</span><b>+${ACH_REWARD}</b></div>`));
   render(`<div class="screen center">
     ${levelUp ? `<div class="lvup stroke">LEVEL UP! Lv.${lv}</div>` : ''}
     <div class="ribbon stroke">${esc(banner)}</div>
@@ -361,6 +373,7 @@ function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = fa
   if (levelUp) timers.push(setTimeout(() => { sfx.levelUp(); say(`升級了！等級${cnNum(lv)}！`); }, 1900));
   else if (trainUp) timers.push(setTimeout(() => { sfx.levelUp(); say(`${EXERCISES[trainUp.ex].name}升級了！`); }, 1900));
   if (dres?.newly?.length) timers.push(setTimeout(() => sfx.catch(), 2600));
+  if (achs.length) timers.push(setTimeout(() => { sfx.levelUp(); say(`解鎖成就，${achs[0].name}！`); }, 3100));
   timers.push(setTimeout(() => playMusic('home'), 3500));
   onCleanup(() => timers.forEach(clearTimeout));
   say(`收服成功！獲得${gained}元氣值${doubled ? '，雙倍獎勵！' : '！'}`);
@@ -529,13 +542,15 @@ function bossFinal() {
     const trainUp = recordExercise(BOSS.exercise);
     const perfect = !r.manual && r.hints === 0;
     const dres = recordDaily({ boss: true, ex: BOSS.exercise, reps: target, perfect });
+    recordLog({ ex: BOSS.exercise, amount: target, perfect, boss: true });
+    const achs = checkAchievements();
     busy = false;
     rewardScreen({
       spiritHTML: spiritSVG('boss'),
       banner: first ? 'BOSS CLEAR!' : '大王又倒了！',
       title: first ? '打倒胖胖大王！🏆' : `${BOSS.name} 第 ${S().bossWins} 次被打倒`,
       gained: BOSS.reward, doubled: false, levelUp: level() > lvBefore,
-      trainUp, daily: dres, perfect,
+      trainUp, daily: dres, perfect, achs,
       again: bossIntro,
     });
   });
