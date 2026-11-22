@@ -283,7 +283,77 @@ svg .eyes { transform-box: fill-box; transform-origin: center; animation: blink 
 }
 
 /* 底部選單 */
-.dock { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dock { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dock .btn { padding: 12px 6px; font-size: 17px; }
+
+/* 今日任務面板 */
+.quest-panel {
+  background: linear-gradient(160deg, #FFF7D6, #FFE3EF); border: 3.5px solid var(--ink); border-radius: 22px;
+  box-shadow: 0 6px 0 var(--ink); padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.qp-head { display: flex; justify-content: space-between; align-items: center; }
+.qp-head .q-tag {
+  display: inline-block; padding: 2px 12px; border-radius: 10px; background: var(--red); color: #fff;
+  border: 2.5px solid var(--ink); font-weight: 900; font-size: 14px; letter-spacing: 1px;
+}
+.qp-count { font-family: var(--num); font-weight: 800; font-size: 18px; }
+.mrow {
+  display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 14px;
+  background: #fff; border: 2.5px solid var(--ink);
+}
+.mrow.done { background: #E3FBEE; }
+.mcheck {
+  width: 24px; height: 24px; flex: none; border-radius: 7px; border: 2.5px solid var(--ink); background: #fff;
+  display: grid; place-items: center; font-weight: 900; font-size: 15px; color: #fff;
+}
+.mrow.done .mcheck { background: var(--mint); }
+.mico { width: 40px; height: 34px; flex: none; display: grid; place-items: center; }
+.mico svg { width: 100%; height: 100%; }
+.chest-ico { font-size: 26px; }
+.mtext { flex: 1; min-width: 0; font-weight: 900; font-size: 14px; line-height: 1.35; }
+.mbar { position: relative; height: 12px; margin-top: 4px; border-radius: 999px; background: #EFE7F7; border: 2px solid var(--ink); overflow: hidden; }
+.mbar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--mint-hi), var(--mint)); }
+.mbar > span { position: absolute; right: 6px; top: -2px; font-family: var(--num); font-size: 11px; font-weight: 800; }
+.mrew { flex: none; font-family: var(--num); font-weight: 800; font-size: 15px; color: var(--pink); white-space: nowrap; }
+.mrow.done .mrew { color: var(--mint); font-family: var(--display); font-size: 13px; }
+.mrow.fat:not(.done) { background: #FFE0EC; }
+.x2s { background: var(--red); color: #fff !important; padding: 0 8px; border-radius: 8px; border: 2px solid var(--ink); }
+.mrow.chest:not(.done) { background: #FFF2C2; }
+
+/* 過關畫面的額外獎勵 */
+.gain-list { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.gain-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 14px;
+  background: #fff; border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); font-weight: 900; font-size: 14px; text-align: left;
+  animation: starPop .45s cubic-bezier(.3,1.6,.5,1) both; animation-delay: 1.6s;
+}
+.gain-row b { font-family: var(--num); color: var(--pink); white-space: nowrap; }
+.gain-row.train { background: #E3F4FF; }
+.gain-row.train b { color: var(--blue); font-family: var(--display); }
+.gain-row.mission { background: #FFF7D6; animation-delay: 2.4s; }
+.gain-row.chest { background: #FFE3EF; animation-delay: 2.8s; }
+.gain-row.perfect { background: #E3FBEE; justify-content: center; }
+
+/* 訓練等級 */
+.t-group { margin: 6px 0 0; font-size: 22px; font-weight: 900; }
+.tgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tcard {
+  background: #fff; border: 3.5px solid var(--ink); border-radius: 18px; box-shadow: 0 5px 0 var(--ink);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.tcard.fresh { background: #F6F2FB; }
+.t-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.t-name { font-weight: 900; font-size: 16px; }
+.t-lv { font-family: var(--num); font-weight: 800; font-size: 13px; padding: 0 8px; border-radius: 8px; background: var(--yellow); border: 2px solid var(--ink); white-space: nowrap; }
+.t-target { font-family: var(--num); font-weight: 800; font-size: 34px; line-height: 1.1; color: var(--purple); }
+.t-target small { font-size: 15px; margin-left: 2px; color: var(--ink); }
+.t-pips { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.t-pips i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink); background: #fff; flex: none; }
+.t-pips i.on { background: var(--mint); }
+.t-pips span { margin-left: 2px; }
+.t-where { font-size: 12px; font-weight: 700; }
+.t-where b { color: var(--pink); }
+.t-how { font-size: 12px; color: var(--muted); font-weight: 700; line-height: 1.4; }
 
 /* ---------- 相機 / 戰鬥 ---------- */
 .stage { position: fixed; inset: 0; background: #1E1430; overflow: hidden; z-index: 2; }

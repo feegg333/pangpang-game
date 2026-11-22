@@ -10,6 +10,9 @@ import { render, $, $$, on, onCleanup, esc, bunny, toast, confetti, params, DEBU
 import { arIntro, workout, collect } from './battle.js';
 import { enableInAppNfc, setNfcHandler, webNfcSupported, nfcActive } from './nfc.js';
 import { playMusic, stopMusic, setMusicEnabled } from './music.js';
+import {
+  nestExercise, stageOf, targetOf, toNext, isMaxed, timesDone, recordExercise, daily, missionProgress, recordDaily, BONUS,
+} from './daily.js';
 
 let busy = false; // 戰鬥中，忽略遊戲內感應
 
@@ -110,7 +113,7 @@ function tutorial() {
     busy = true;
     const r = await workout({ exercise: 'squat', target: 3, monsterHTML: bunnySVG(), label: '練習', loseLine: '你好棒！' });
     busy = false;
-    if (r === 'quit') return home();
+    if (r.status === 'quit') return home();
     render(`<div class="screen center">
       <div class="clear-wrap"><div class="sunburst"></div><div style="width:150px;position:relative">${bunnySVG()}</div></div>
       <div class="ribbon stroke">教學完成！</div>
@@ -147,26 +150,35 @@ function home() {
   const nextNew = NEST_ORDER.find((id) => !st.collected[id]);
   const bossOpen = allCollected();
 
-  const quest = fatOpen
-    ? `<div class="quest" id="quest">
-        <div class="q-ico wobble">${monsterSVG(fat)}</div>
-        <div class="q-body"><div class="q-tag">今日任務</div>
-          <div class="q-title">${NESTS[fat].monster} 偷吃東西變胖了！</div>
-          <div class="q-sub">去 ${NESTS[fat].emoji} ${NESTS[fat].nest} 打倒牠拿 <b style="color:var(--red)">雙倍元氣值</b></div></div>
-      </div>`
-    : `<div class="quest done">
-        <div class="q-ico">${spiritSVG(fat)}</div>
-        <div class="q-body"><div class="q-tag">今日任務完成</div>
-          <div class="q-title">雙倍獎勵拿到了！</div>
-          <div class="q-sub">想多賺元氣值，可以再去打任何一隻～</div></div>
-      </div>`;
+  // 今日任務：變胖的胖胖怪（雙倍）＋ 3 個每天不同的任務 ＋ 全部完成寶箱
+  const d = daily();
+  const mRows = d.missions.map((m, i) => {
+    const p = missionProgress(m), done = d.done.includes(i);
+    return `<div class="mrow ${done ? 'done' : ''}">
+      <span class="mcheck">${done ? '✓' : ''}</span>
+      <div class="mtext">${esc(m.text)}<div class="mbar"><i style="width:${(p / m.goal) * 100}%"></i><span>${p}/${m.goal}</span></div></div>
+      <span class="mrew">${done ? '完成' : `+${m.reward}`}</span>
+    </div>`;
+  }).join('');
+  const quest = `<div class="quest-panel" id="quest">
+    <div class="qp-head"><span class="q-tag">📜 今日任務</span><span class="qp-count">${d.done.length}/${d.missions.length}</span></div>
+    <div class="mrow fat ${fatOpen ? '' : 'done'}">
+      <span class="mico">${fatOpen ? monsterSVG(fat) : spiritSVG(fat)}</span>
+      <div class="mtext">${fatOpen ? `${NESTS[fat].monster} 變胖了！去 ${NESTS[fat].emoji}${NESTS[fat].nest} 打倒牠` : `${NESTS[fat].monster} 的雙倍獎勵拿到了`}</div>
+      <span class="mrew x2s">${fatOpen ? '×2' : '完成'}</span>
+    </div>
+    ${mRows}
+    <div class="mrow chest ${d.bonus ? 'done' : ''}"><span class="mico chest-ico">🎁</span>
+      <div class="mtext">${d.bonus ? '今天的寶箱打開了！明天會有新任務' : '3 個任務全部完成，再送寶箱'}</div>
+      <span class="mrew">${d.bonus ? '已領' : `+${BONUS}`}</span></div>
+  </div>`;
 
   const tip = nextNew
     ? bunny(`快去 <b>${NESTS[nextNew].emoji} ${NESTS[nextNew].nest}</b> 找 ${NESTS[nextNew].monster}！`)
     : bossOpen && !st.bossWins ? bunny('4 隻都收服了！<b>胖胖大王</b>的城堡開了，點城堡挑戰牠！') : '';
 
   const node = (id) => {
-    const n = NESTS[id], ex = EXERCISES[n.exercise];
+    const n = NESTS[id], exId = nestExercise(id), ex = EXERCISES[exId];
     const [x, y] = MAP_POS[id];
     const isFat = isFatToday(id);
     const cls = isFat ? 'fat' : st.collected[id] ? 'cleared' : 'unknown';
@@ -177,7 +189,7 @@ function home() {
     return `<div class="node ${cls}" data-id="${id}" style="left:${x}%;top:${y}px">
       <div class="node-ring">${badge}${isFat || st.collected[id] ? monsterSVG(id) : monsterSVG(id)}</div>
       <div class="node-stars">${stars}</div>
-      <div class="node-label">${n.emoji} ${n.monster}<small>${n.nest}・${ex.name}${n.target}${ex.unit}</small></div>
+      <div class="node-label">${n.emoji} ${n.monster}<small>${n.nest}・${ex.name}${targetOf(exId)}${ex.unit}</small></div>
     </div>`;
   };
   const [bx, by] = MAP_POS.boss;
@@ -211,6 +223,7 @@ function home() {
     </div>
     ${webNfcSupported() && !nfcActive() ? `<button class="btn sky" id="nfc">📡 開啟遊戲內感應</button>` : ''}
     <div class="dock">
+      <button class="btn mint" id="train">💪 訓練</button>
       <button class="btn yellow" id="dex">📖 圖鑑</button>
       <button class="btn purple" id="set">⚙️ 設定</button>
     </div>
@@ -236,8 +249,8 @@ function home() {
     $('#mute').textContent = onNow ? '🎵' : '🔇';
     toast(onNow ? '背景音樂：開' : '背景音樂：關', 1200);
   });
-  on('#quest', 'click', () => toast(`去 ${NESTS[fat].emoji}${NESTS[fat].nest}，用手機上緣碰貼紙！`));
   on('#dex', 'click', dex);
+  on('#train', 'click', training);
   on('#set', 'click', settings);
   on('#nfc', 'click', async () => {
     gesture();
@@ -267,31 +280,40 @@ function encounterGate(id) {
 
 async function encounter(id) {
   busy = true;
-  const n = NESTS[id], ex = EXERCISES[n.exercise];
+  const n = NESTS[id], exId = nestExercise(id), ex = EXERCISES[exId];
+  const target = targetOf(exId), stage = stageOf(exId);
   const fat = isFatToday(id);
   playMusic('battle');
   say(n.taunt);
+  const nextTxt = isMaxed(exId) ? '已經練到最高級！' : `再完成 ${toNext(exId)} 次升級 → ${targetOf(exId, stage + 1)}${ex.unit}`;
   await arIntro({
     monsterHTML: monsterSVG(id),
     speech: n.taunt,
-    tag: fat ? '變胖了！×2' : 'BATTLE',
-    mission: `${ex.name} ${n.target} ${ex.unit}`,
-    missionSub: fat ? '今天牠變胖了！打倒牠拿雙倍元氣值' : '讓牠消風，變回小精靈！',
+    tag: fat ? '變胖了！×2' : ex.kind === 'hold' ? '肌耐力' : 'BATTLE',
+    mission: `${ex.name} ${target} ${ex.unit}`,
+    missionSub: `💪 Lv.${stage + 1}・${nextTxt}<br>${esc(ex.how)}`,
   });
   const r = await workout({
-    exercise: n.exercise, target: n.target, monsterHTML: monsterSVG(id, 'hurt'),
+    exercise: exId, target, monsterHTML: monsterSVG(id, 'hurt'), level: stage + 1,
     label: n.monster, hurt: n.hurt, loseLine: n.lose,
   });
-  if (r === 'quit') { busy = false; return home(); }
+  if (r.status === 'quit') { busy = false; return home(); }
   await collect({ spiritHTML: spiritSVG(id), name: n.spirit });
   const lvBefore = level();
   const res = recordWin(id);
+  const trainUp = recordExercise(exId);
+  const perfect = !r.manual && r.hints === 0;
+  const dres = recordDaily({
+    nest: id, ex: exId, perfect,
+    reps: ex.kind === 'reps' ? target : 0, hold: ex.kind === 'hold' ? target : 0,
+  });
   busy = false;
   rewardScreen({
     spiritHTML: spiritSVG(id),
     banner: res.firstTime ? '收服成功！' : '再次消風！',
     title: res.firstTime ? `${n.spirit} 加入圖鑑` : `${n.monster} 又被打扁了`,
     gained: res.gained, doubled: res.doubled, levelUp: level() > lvBefore,
+    trainUp, daily: dres, perfect,
     again: () => encounter(id),
   });
 }
@@ -306,9 +328,17 @@ function nextHint() {
   return '今天的雙倍獎勵拿到了！還想運動的話，再打一次也有元氣值喔～';
 }
 
-function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = false, again }) {
+function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = false, trainUp = null, daily: dres = null, perfect = false, again }) {
   const lv = level();
   stopMusic(0.2);
+  const extra = [];
+  if (perfect) extra.push('<div class="gain-row perfect">✨ 完美姿勢！一次都沒被提醒</div>');
+  if (trainUp) {
+    const e = EXERCISES[trainUp.ex];
+    extra.push(`<div class="gain-row train"><span>💪 ${e.name} 升到 Lv.${trainUp.stage + 1}！</span><b>下次 ${trainUp.target}${e.unit}</b></div>`);
+  }
+  (dres?.newly || []).forEach((m) => extra.push(`<div class="gain-row mission"><span>📜 任務完成：${esc(m.text)}</span><b>+${m.reward}</b></div>`));
+  if (dres?.bonus) extra.push(`<div class="gain-row chest"><span>🎁 今日任務全部完成！寶箱</span><b>+${BONUS}</b></div>`);
   render(`<div class="screen center">
     ${levelUp ? `<div class="lvup stroke">LEVEL UP! Lv.${lv}</div>` : ''}
     <div class="ribbon stroke">${esc(banner)}</div>
@@ -317,6 +347,7 @@ function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = fa
     <h1 class="title stroke" style="font-size:28px">${esc(title)}</h1>
     <div class="reward"><span id="gain">+0</span> ⚡</div>
     ${doubled ? '<span class="x2">×2 變胖獎勵</span>' : ''}
+    ${extra.length ? `<div class="gain-list">${extra.join('')}</div>` : ''}
     <div class="pill">Lv.${lv}・總元氣值 ${S().energy}</div>
     ${bunny(nextHint())}
     <div class="row" style="width:100%">
@@ -328,6 +359,8 @@ function rewardScreen({ spiritHTML, banner, title, gained, doubled, levelUp = fa
   // 星星依序彈出（配合 CSS 動畫的延遲）
   const timers = [0, 1, 2].map((i) => setTimeout(() => sfx.star(i), 250 + i * 150));
   if (levelUp) timers.push(setTimeout(() => { sfx.levelUp(); say(`升級了！等級${cnNum(lv)}！`); }, 1900));
+  else if (trainUp) timers.push(setTimeout(() => { sfx.levelUp(); say(`${EXERCISES[trainUp.ex].name}升級了！`); }, 1900));
+  if (dres?.newly?.length) timers.push(setTimeout(() => sfx.catch(), 2600));
   timers.push(setTimeout(() => playMusic('home'), 3500));
   onCleanup(() => timers.forEach(clearTimeout));
   say(`收服成功！獲得${gained}元氣值${doubled ? '，雙倍獎勵！' : '！'}`);
@@ -375,7 +408,7 @@ async function bossIntro() {
       <div style="text-align:center"><div class="panel-head">限時 ${BOSS.timeLimit / 60} 分鐘</div></div>
       ${seq.map((id, i) => `<div><b>${i + 1}.</b> ${NESTS[id].emoji} ${NESTS[id].nest}</div>`).join('')}
     </div>
-    ${bunny(`每碰一個窩，大王的肚子就會消一圈！全部跑完再做 <b>${BOSS.target} 下波比跳</b> 給牠最後一擊！`)}
+    ${bunny(`每碰一個窩，大王的肚子就會消一圈！全部跑完再做 <b>${targetOf(BOSS.exercise)} 下波比跳</b> 給牠最後一擊！`)}
     <button class="btn big pulse" id="go">開始計時！</button>
     <button class="btn white small" id="home">先不要</button>
   </div>`);
@@ -472,7 +505,7 @@ function bossFinal() {
     <div class="ribbon stroke" style="background:linear-gradient(180deg,#FF8A7A,#FF4D5E)">FINAL</div>
     <div style="width:140px" class="wobble shake">${bossSVG('hurt')}</div>
     <h1 class="title stroke">最後一擊！</h1>
-    ${bunny(`大王只剩一口氣了！把手機放下來，<b>波比跳 ${BOSS.target} 下</b>打倒牠！`)}
+    ${bunny(`大王只剩一口氣了！把手機放下來，<b>波比跳 ${targetOf(BOSS.exercise)} 下</b>打倒牠！`)}
     <div class="card" style="text-align:left;line-height:1.7;width:100%;margin-top:14px">
       <div style="text-align:center"><div class="panel-head">波比跳怎麼做</div></div>
       蹲下 → 雙手撐地、腳往後跳成伏地挺身姿勢 → 收腳 → 站起來跳起、手舉過頭，算一下
@@ -483,24 +516,63 @@ function bossFinal() {
   on('#giveup', 'click', () => { update((s) => (s.boss = null)); busy = false; home(); });
   on('#go', 'click', async () => {
     await gesture();
+    const target = targetOf(BOSS.exercise);
     const r = await workout({
-      exercise: BOSS.exercise, target: BOSS.target, monsterHTML: bossSVG('hurt'),
+      exercise: BOSS.exercise, target, monsterHTML: bossSVG('hurt'), level: stageOf(BOSS.exercise) + 1,
       label: BOSS.name, hurt: ['我的皇冠歪了！', '不要再跳了啦～', '肚子好扁…'], loseLine: '噗咻咻咻～～大王變小了！',
     });
-    if (r === 'quit') return bossFinal();
+    if (r.status === 'quit') return bossFinal();
     await collect({ spiritHTML: spiritSVG('boss'), name: BOSS.spirit });
     const first = !S().bossWins;
     const lvBefore = level();
     recordBossWin(BOSS.reward);
+    const trainUp = recordExercise(BOSS.exercise);
+    const perfect = !r.manual && r.hints === 0;
+    const dres = recordDaily({ boss: true, ex: BOSS.exercise, reps: target, perfect });
     busy = false;
     rewardScreen({
       spiritHTML: spiritSVG('boss'),
       banner: first ? 'BOSS CLEAR!' : '大王又倒了！',
       title: first ? '打倒胖胖大王！🏆' : `${BOSS.name} 第 ${S().bossWins} 次被打倒`,
       gained: BOSS.reward, doubled: false, levelUp: level() > lvBefore,
+      trainUp, daily: dres, perfect,
       again: bossIntro,
     });
   });
+}
+
+// ================= 訓練等級（漸進式） =================
+function training() {
+  const where = (ex) => {
+    if (ex === BOSS.exercise) return '👑 大王最後一擊';
+    const id = NEST_ORDER.find((k) => NESTS[k].pool.includes(ex));
+    return `${NESTS[id].emoji} ${NESTS[id].nest}${nestExercise(id) === ex ? '・<b>今天出這招</b>' : ''}`;
+  };
+  const card = (ex) => {
+    const e = EXERCISES[ex], st = stageOf(ex), maxed = isMaxed(ex);
+    const per = maxed ? 2 : 2 - toNext(ex);
+    return `<div class="tcard ${timesDone(ex) ? '' : 'fresh'}">
+      <div class="t-top"><span class="t-name">${e.name}</span><span class="t-lv">Lv.${st + 1}${maxed ? ' MAX' : ''}</span></div>
+      <div class="t-target">${targetOf(ex)}<small>${e.unit}</small></div>
+      <div class="t-pips">${[0, 1].map((i) => `<i class="${i < per ? 'on' : ''}"></i>`).join('')}
+        <span>${maxed ? '已練到最高級' : `再 ${toNext(ex)} 次 → ${targetOf(ex, st + 1)}${e.unit}`}</span></div>
+      <div class="t-where">${where(ex)}</div>
+      <div class="t-how">${esc(e.how)}</div>
+    </div>`;
+  };
+  const group = (title, kinds) => {
+    const list = Object.keys(EXERCISES).filter((k) => kinds.includes(EXERCISES[k].kind));
+    return `<h2 class="t-group stroke">${title}</h2><div class="tgrid">${list.map(card).join('')}</div>`;
+  };
+  render(`<div class="screen">
+    <h1 class="title stroke" style="text-align:center">💪 訓練等級</h1>
+    ${bunny('每種運動完成 <b>2 次</b>就會升一級，目標會慢慢變多，肌耐力一點一點練起來！')}
+    ${group('肌耐力・撐住', ['hold'])}
+    ${group('次數挑戰', ['reps'])}
+    ${group('有氧', ['cardio'])}
+    <button class="btn" id="home">回主畫面</button>
+  </div>`);
+  on('#home', 'click', home);
 }
 
 // ================= 圖鑑 =================

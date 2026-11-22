@@ -174,5 +174,95 @@ function burpee() {
   };
 }
 
-const MAKERS = { squat, jack, knees, plank, burpee };
-export function makeTracker(type) { return MAKERS[type](); }
+// ---------------- 肌耐力（撐住計時）共用邏輯 ----------------
+// judge(lm, ar) 回傳 { lost } 或 { bad: ''(姿勢正確) | 錯誤代碼 }；hints 把錯誤代碼對應到提醒文字
+function holdTracker(ready, judge, hints) {
+  let time = 0, prev = 0, badSince = 0, badType = '';
+  return {
+    ready,
+    update(lm, now, ar) {
+      const j = judge(lm, ar, time);
+      if (j.lost) { prev = now; return { lost: true }; }
+      const dt = prev ? Math.min(now - prev, 200) : 0;
+      prev = now;
+      let hint = null;
+      if (!j.bad) { time += dt / 1000; badSince = 0; badType = ''; }
+      else {
+        if (j.bad !== badType) { badType = j.bad; badSince = now; }
+        if (now - badSince > 700) { hint = hints[j.bad]; badSince = now + 1800; }
+      }
+      return { rep: false, progress: time, hint, good: !j.bad, cue: j.cue || null };
+    },
+  };
+}
+const kneeAngle = (lm, ar) => {
+  const a = [];
+  if (V(lm, 23) && V(lm, 25) && V(lm, 27)) a.push(angle(lm[23], lm[25], lm[27], ar));
+  if (V(lm, 24) && V(lm, 26) && V(lm, 28)) a.push(angle(lm[24], lm[26], lm[28], ar));
+  return a.length ? a.reduce((x, y) => x + y) / a.length : null;
+};
+const torsoLen = (lm) => Math.abs(mid(lm[23], lm[24]).y - mid(lm[11], lm[12]).y) || 0.2;
+
+// 深蹲停留：膝蓋角度維持在 55°～130°
+function squatHold() {
+  return holdTracker(frontReady, (lm, ar) => {
+    const k = kneeAngle(lm, ar);
+    if (k == null) return { lost: true };
+    return { bad: k > 130 ? 'high' : k < 50 ? 'low' : '' };
+  }, { high: '再蹲低一點，撐住！', low: '不用蹲那麼低，大腿水平就好～' });
+}
+
+// 側平舉撐住：雙手打直、和肩膀差不多高
+function armHold() {
+  return holdTracker(frontReady, (lm, ar) => {
+    if (![11, 12, 13, 14, 15, 16].every((i) => V(lm, i, 0.4))) return { lost: true };
+    const t = V(lm, 23, 0.4) && V(lm, 24, 0.4) ? torsoLen(lm) : Math.abs(lm[11].x - lm[12].x) * ar * 1.4;
+    let bad = '';
+    for (const [s, e, w] of [[11, 13, 15], [12, 14, 16]]) {
+      const dy = lm[w].y - lm[s].y;
+      if (dy > 0.3 * t) bad = 'low';
+      else if (dy < -0.4 * t) bad = bad || 'high';
+      else if (angle(lm[s], lm[e], lm[w], ar) < 140) bad = bad || 'bend';
+    }
+    return { bad };
+  }, { low: '手臂抬高，和肩膀一樣高！', high: '手放低一點，平舉就好～', bend: '手臂打直！' });
+}
+
+// 單腳平衡：前半段抬一隻腳，過一半提醒換另一隻
+function balance(target = 30) {
+  let side = '', switched = false;
+  return holdTracker(frontReady, (lm, ar, time) => {
+    if (![23, 24, 27, 28].every((i) => V(lm, i, 0.4))) return { lost: true };
+    const t = torsoLen(lm);
+    const up = lm[27].y < lm[28].y - 0.18 * t ? 'A' : lm[28].y < lm[27].y - 0.18 * t ? 'B' : '';
+    let cue = null;
+    if (!switched && side && time >= target / 2) { switched = true; side = side === 'A' ? 'B' : 'A'; cue = '換另一隻腳！'; }
+    if (!side && up) side = up;
+    if (!up) return { bad: 'down', cue };
+    if (up !== side) return { bad: switched ? 'wrong' : '', cue };
+    return { bad: '', cue };
+  }, { down: '抬起一隻腳，站穩～', wrong: '換另一隻腳喔！' });
+}
+
+// 臀橋（側拍）：躺著、膝蓋彎曲，肩—髖—膝成一直線
+function bridge() {
+  return holdTracker(sideReady, (lm, ar) => {
+    const [si, hi, ki, ai] = bestSide(lm);
+    if (!V(lm, si, 0.4) || !V(lm, hi, 0.4) || !V(lm, ki, 0.4)) return { lost: true };
+    const s = lm[si], h = lm[hi], k = lm[ki];
+    const dx = Math.abs(s.x - k.x) * ar;
+    if (dx < 0.18 || Math.abs(s.y - k.y) > dx) return { bad: 'up' };      // 還沒躺下
+    const t = (h.x - s.x) / ((k.x - s.x) || 0.0001);
+    const dev = (h.y - (s.y + (k.y - s.y) * t)) / dx;                     // 正值＝屁股掉下去
+    if (dev > 0.08) return { bad: 'low' };
+    if (dev < -0.14) return { bad: 'arch' };
+    if (V(lm, ai, 0.4)) {
+      const ka = angle(h, k, lm[ai], ar);
+      if (ka > 135) return { bad: 'knee' };
+    }
+    return { bad: '' };
+  }, { up: '躺下來，膝蓋彎曲腳踩地～', low: '屁股抬高！夾緊！', arch: '腰不要拱太高，一直線就好', knee: '膝蓋彎起來，腳掌踩地' });
+}
+
+const MAKERS = { squat, jack, knees, plank, burpee, squatHold, armHold, balance, bridge };
+export function makeTracker(type, target) { return MAKERS[type](target); }

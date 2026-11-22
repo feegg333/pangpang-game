@@ -60,7 +60,8 @@ export async function collect({ spiritHTML, name }) {
 }
 
 // ② 運動戰鬥：回傳 'done' 或 'quit'
-export function workout({ exercise, target, monsterHTML, label, hurt = [], loseLine = '' }) {
+// 回傳 { status: 'done' | 'quit', hints: 被提醒次數, manual: 是否手動模式 }
+export function workout({ exercise, target, monsterHTML, label, hurt = [], loseLine = '', level = 0 }) {
   const ex = EXERCISES[exercise];
   const timed = ex.timed;
   const root = render(`<div class="stage">
@@ -69,7 +70,7 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     <div class="guide-frame ${ex.view === 'side' ? 'side' : ''}"></div>
     <div class="ui top"><div class="battle-top">
       <div class="mini-monster"><div class="inner">${monsterHTML}</div></div>
-      <div class="hp"><div class="lbl"><span>${esc(label)}</span><em>${ex.name} ${target}${ex.unit}</em></div><div class="bar"><i style="width:100%"></i></div></div>
+      <div class="hp"><div class="lbl"><span>${esc(label)}</span><em>${level ? `Lv.${level} ` : ''}${ex.name} ${target}${ex.unit}</em></div><div class="bar"><i style="width:100%"></i></div></div>
     </div></div>
     <div class="coach" id="coach">小跳跳正在戴眼鏡… 🔍</div>
     <div class="big-count" id="count" hidden></div>
@@ -85,10 +86,10 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
   const mini = $('.mini-monster .inner', root);
   const manualBtn = $('#manual', root), skipBtn = $('#skipGuide', root);
 
-  let state = 'loading', manual = false, manualRunning = false;
+  let state = 'loading', manual = false, manualRunning = false, hints = 0;
   let progress = 0, lastWhole = -1, readySince = 0, guideStart = 0, lostSince = 0, lostSaid = false;
   let raf = 0, alive = true, coachTimer = 0;
-  const tracker = makeTracker(exercise);
+  const tracker = makeTracker(exercise, target);
 
   keepAwake();
   duckMusic(true);
@@ -175,7 +176,7 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     stopSpeech();
     say('成功了！' + (loseLine || ''));
     await sleep(2200);
-    if (alive) resolveFn('done');
+    if (alive) resolveFn({ status: 'done', hints, manual });
   };
 
   const startCountdown = async () => {
@@ -246,7 +247,8 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     if (lostSaid) coachEl.hidden = true;
     lostSince = 0; lostSaid = false;
     loop.good = r.good;
-    if (r.hint) { coach(r.hint, 'warn', 1600); sfx.warn(); say(r.hint, { interrupt: true }); }
+    if (r.hint) { hints++; coach(r.hint, 'warn', 1600); sfx.warn(); say(r.hint, { interrupt: true }); }
+    if (r.cue) { coach(r.cue, 'good', 1800); sfx.ding(); say(r.cue, { interrupt: true }); }
     if (timed) { progress = r.progress; tickTimed(); }
     else if (r.rep) { progress = r.progress; showProgress(); onRep(); if (progress >= target) finish(); }
   };
@@ -269,7 +271,7 @@ export function workout({ exercise, target, monsterHTML, label, hurt = [], loseL
     }
   });
   on(skipBtn, 'click', () => state === 'guide' && startCountdown());
-  on($('#quit', root), 'click', () => { alive = false; resolveFn('quit'); });
+  on($('#quit', root), 'click', () => { alive = false; resolveFn({ status: 'quit', hints, manual }); });
 
   if (DEBUG) {
     const pad = document.createElement('div');
